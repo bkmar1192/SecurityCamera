@@ -1,0 +1,57 @@
+
+1.3.6
+   - Added a max Sensitivity and a Minimum Sensitivity to allow for more presise motion configuration
+   - bug fix on creating a new device
+
+1.3.5
+   - Action: Take Snapshot - save single image to file
+   - Action: Take Mosaic - save last six images into a singel image mosaic
+   - Improved motion detection
+   - changed to label format for date stamp
+
+1.3.4
+- Camera not available/off default image
+- Removed CameraStatus state
+  - CameraState = No/Yes/Unavailable
+- Image enhancement flags
+  - Auto Level
+  - Normalize
+  - Enhance
+  - Image Border
+  - Image width and height
+- single line for URL
+- Toggle Carousel - click on carrousel image to hold camera/rotate
+
+1.3.3
+- Use symbolic links for Master images to reduce file IO
+- bug fixes
+- improved process for checking if a camera is responding
+
+1.3.2
+
+- thread tracking to decrease potential duplicate threads open
+- combined imagemajick command into single line
+- improved image management
+- other bug fixes
+
+1.3.1
+
+- bug fixes
+
+1.3.0
+
+- initial release to Indigo forum
+- motion detection on cameras
+
+1.2.0
+
+- camera recording
+
+1.1.0
+
+- image carousel
+- master image switching
+
+1.0.0
+
+- initial image capture

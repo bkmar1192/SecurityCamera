@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<Actions>
+	<Action id="StopCamera" deviceFilter="self">
+		<Name>Stop Camera</Name>
+		<CallbackMethod>StopCamera</CallbackMethod>
+	</Action>
+	<Action id="StartCamera" deviceFilter="self">
+		<Name>Start Camera</Name>
+		<CallbackMethod>StartCamera</CallbackMethod>
+	</Action>
+	<Action id="ToggleCamera" deviceFilter="self">
+		<Name>Toggle Camera Activation</Name>
+		<CallbackMethod>ToggleCamera</CallbackMethod>
+	</Action>
+	<Action id="MasterCamera" deviceFilter="self">
+		<Name>Master Camera</Name>
+		<CallbackMethod>MasterCamera</CallbackMethod>
+	</Action>
+	<Action id="ToggleCarousel" deviceFilter="self">
+		<Name>Toggle Carousel</Name>
+		<CallbackMethod>ToggleCarousel</CallbackMethod>
+	</Action>
+	<Action id="Snapshot" deviceFilter="self">
+		<Name>Take Snapshot</Name>
+		<CallbackMethod>Snapshot</CallbackMethod>
+	</Action>
+	<Action id="Mosaic" deviceFilter="self">
+		<Name>Take Mosaic</Name>
+		<CallbackMethod>Mosaic</CallbackMethod>
+	</Action>
+	<Action id="RecordCamera" deviceFilter="self">
+		<Name>Record Camera</Name>
+		<CallbackMethod>RecordCamera</CallbackMethod>
+	</Action>
+	<Action id="PlayRecording" deviceFilter="self">
+		<Name>Play</Name>
+		<ConfigUI>
+			<Field id="PlaySelect" type="menu">
+				<Label>Select Recording:</Label>
+				<List>
+					<Option value="01">Video 1</Option>
+					<Option value="02">Video 2</Option>
+					<Option value="03">Video 3</Option>
+					<Option value="04">Video 4</Option>
+					<Option value="05">Video 5</Option>
+					<Option value="06">Video 6</Option>
+					<Option value="07">Video 7</Option>
+					<Option value="08">Video 8</Option>
+					<Option value="09">Video 9</Option>
+					<Option value="10">Video 10</Option>
+				</List>
+			</Field>
+		</ConfigUI>
+		<CallbackMethod>PlayRecording</CallbackMethod>
+	</Action>
+		<Action id="DeleteRecording" deviceFilter="self">
+		<Name>Delete Old Files</Name>
+		<ConfigUI>
+			<Field id="DeleteMonths" type="textfield">
+				<Label>Delete recording older than (in months):</Label>
+			</Field>
+		</ConfigUI>					
+		<CallbackMethod>DeleteRecording</CallbackMethod>
+	</Action>
+</Actions>
+
+
+

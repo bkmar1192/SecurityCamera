@@ -1,0 +1,223 @@
+<?xml version="1.0"?>
+<Devices>
+	<Device type="custom" id="SecurityCamera">
+		<Name>Security Camera</Name>
+		<ConfigUI>
+			<Field id="autoLabel" type="label">
+				<Label>Camera Setup</Label>
+			</Field>
+			<Field id="CameraName" type="textfield">
+				<Label>Camera Name:</Label>
+			</Field>
+			<Field id="CameraAddress" type="textfield">
+				<Label>Address: http://</Label>
+			</Field>
+			<Field id="CameraTimeout" type="textfield" defaultValue="30">
+				<Label>Camera Timeout (in seconds): </Label>
+			</Field>
+			
+			<Field id="simpleSeparator1" type="separator" />
+			
+			<Field id="CaptureSettings" type="label" >
+				<Label>Capture Settings: </Label>
+			</Field>
+			
+			<Field type="menu" id="CameraRotation" defaultValue="0">
+			<Label>Image Rotation: </Label>
+				<List>
+					<Option value="0">0</Option>
+					<Option value="90">90</Option>
+					<Option value="180">180</Option>
+					<Option value="270">270</Option>
+				</List>
+			</Field>
+		
+			<Field id="ImageWidth" type="textfield" defaultValue="384">
+				<Label>Image Width: </Label>
+			</Field>
+			
+			<Field id="ImageHeight" type="textfield" defaultValue="256">
+				<Label>Image Height: </Label>
+			</Field>
+		
+			<Field id="BorderWidth" type="textfield" defaultValue="0">
+				<Label>Image Border Width: </Label>
+			</Field>
+		
+			<Field type="menu" id="BorderColor" defaultValue="white">
+			<Label>Border Color: </Label>
+				<List>
+					<Option value="grey">Grey</Option>
+					<Option value="black">Black</Option>
+					<Option value="white">White</Option>
+					<Option value="blue">Blue</Option>
+					<Option value="red">Red</Option>
+					<Option value="green">Green</Option>
+					<Option value="yellow">Yellow</Option>
+					<Option value="purple">Purple</Option>
+				</List>
+			</Field>
+		
+			<Field id="simpleSeparator2" type="separator" />
+			<Field id="ImageSettings" type="label" >
+				<Label>Image Settings: </Label>
+			</Field>
+		
+			<Field type="checkbox" id="AutoLevel" defaultValue="false">
+				<Label>Auto Level: </Label>
+			</Field>
+			<Field type="checkbox" id="Normalize" defaultValue="false">
+				<Label>Normalize Contrast: </Label>
+			</Field>
+			<Field type="checkbox" id="Enhance" defaultValue="false">
+				<Label>Enhance: </Label>
+			</Field>
+			
+			<Field id="simpleSeparator3" type="separator" />
+			<Field id="MotionSettings" type="label" >
+				<Label>Motion Settings: </Label>
+			</Field>
+			
+			<Field type="checkbox" id="CheckMotion" defaultValue="false">
+				<Label>Check Motion Sensitivity: </Label>
+			</Field>
+			<Field id="MinSensitivity" type="textfield" defaultValue=".02">
+				<Label>Minimum Sensitivity :</Label>
+			</Field>
+			<Field id="MaxSensitivity" type="textfield" defaultValue=".15">
+				<Label>Miaximum Sensitivity :</Label>
+			</Field>
+			<Field id="FramesDifferent" type="textfield" defaultValue="5">
+				<Label>Different Frames in a Row:</Label>
+			</Field>
+			<Field type="textfield" id="MotionReset" defaultValue="30">
+				<Label>Seconds Until Reset: </Label>
+			</Field>
+			
+			<Field type="checkbox" id="AdvancedMotion" defaultValue="false" hidden="true">
+				<Label>Advanced Motion: </Label>
+			</Field>
+			<Field type="list" id="listSample" visibleBindingId="AdvancedMotion" visibleBindingValue="true" defaultValue="Zone1, Zone2, Zone3, Zone4, Zone5, Zone6, Zone7, Zone8, Zone9">
+			<Label>Active Zones:</Label>
+				<List>
+					<Option value="Zone1">Zone 1</Option>
+					<Option value="Zone2">Zone 2</Option>
+					<Option value="Zone3">Zone 3</Option>
+					<Option value="Zone4">Zone 4</Option>
+					<Option value="Zone5">Zone 5</Option>
+					<Option value="Zone6">Zone 6</Option>
+					<Option value="Zone7">Zone 7</Option>
+					<Option value="Zone8">Zone 8</Option>
+					<Option value="Zone9">Zone 9</Option>
+				</List>
+			</Field>
+			
+			
+			<Field id="NoImage" type="textfield" hidden="true">
+				<Label>No Image Count:</Label>
+			</Field>
+			<Field id="Reachable" type="textfield" defaultValue="False" hidden="true">
+				<Label>Not Reachable:</Label>
+			</Field>
+			<Field id="ImageThreads" type="textfield" defaultValue="0" hidden="true">
+				<Label>Image Threads:</Label>
+			</Field>
+			<Field id="MotionThreads" type="textfield" defaultValue="0" hidden="true">
+				<Label>Motion Threads:</Label>
+			</Field>
+		</ConfigUI>
+		<UiDisplayStateId>CameraState</UiDisplayStateId>
+		<States>
+			<State id="CameraState">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Camera State</TriggerLabel>
+				<ControlPageLabel>Camera State</ControlPageLabel>
+			</State>
+			<State id="OfflineSeconds">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Seconds Offline</TriggerLabel>
+				<ControlPageLabel>Seconds Offline</ControlPageLabel>
+			</State>
+			<State id="PixelDiff">
+				<ValueType>Number</ValueType>
+				<TriggerLabel>Pixel Difference</TriggerLabel>
+				<ControlPageLabel>Pixel Difference</ControlPageLabel>
+			</State>
+			<State id="ImageAveDiff">
+				<ValueType>Number</ValueType>
+				<TriggerLabel>Average Difference</TriggerLabel>
+				<ControlPageLabel>Average Difference</ControlPageLabel>
+			</State>
+			<State id="FramesDiff">
+				<ValueType>Number</ValueType>
+				<TriggerLabel>Different Frames</TriggerLabel>
+				<ControlPageLabel>Different Frames</ControlPageLabel>
+			</State>
+			<State id="MotionSeconds">
+				<ValueType>Number</ValueType>
+				<TriggerLabel>Seconds Since Last Recording</TriggerLabel>
+				<ControlPageLabel>Seconds Since Last Recording</ControlPageLabel>
+			</State>
+			<State id="MotionDetected">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Motion Detected</TriggerLabel>
+				<ControlPageLabel>Motion Detected</ControlPageLabel>
+			</State>
+			<State id="RecordSeconds">
+				<ValueType>Number</ValueType>
+				<TriggerLabel>Seconds Since Last Recording</TriggerLabel>
+				<ControlPageLabel>Seconds Since Last Recording</ControlPageLabel>
+			</State>		
+			<State id="Recording01">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Recording 01</TriggerLabel>
+				<ControlPageLabel>Camera Recording 01</ControlPageLabel>
+			</State>
+			<State id="Recording02">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Recording 02</TriggerLabel>
+				<ControlPageLabel>Camera Recording 02</ControlPageLabel>
+			</State>
+			<State id="Recording03">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Recording 03</TriggerLabel>
+				<ControlPageLabel>Camera Recording 03</ControlPageLabel>
+			</State>
+			<State id="Recording04">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Recording 04</TriggerLabel>
+				<ControlPageLabel>Camera Recording 04</ControlPageLabel>
+			</State>
+			<State id="Recording05">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Recording 05</TriggerLabel>
+				<ControlPageLabel>Camera Recording 05</ControlPageLabel>
+			</State>
+			<State id="Recording06">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Recording 06</TriggerLabel>
+				<ControlPageLabel>Camera Recording 06</ControlPageLabel>
+			</State>
+			<State id="Recording07">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Recording 07</TriggerLabel>
+				<ControlPageLabel>Camera Recording 07</ControlPageLabel>
+			</State>
+			<State id="Recording08">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Recording 08</TriggerLabel>
+				<ControlPageLabel>Camera Recording 08</ControlPageLabel>
+			</State>
+			<State id="Recording09">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Recording 09</TriggerLabel>
+				<ControlPageLabel>Camera Recording 09</ControlPageLabel>
+			</State>
+			<State id="Recording10">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Recording 10</TriggerLabel>
+				<ControlPageLabel>Camera Recording 10</ControlPageLabel>
+			</State>
+		</States>
+	</Device>
+</Devices>

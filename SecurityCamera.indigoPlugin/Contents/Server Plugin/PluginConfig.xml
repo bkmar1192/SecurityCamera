@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<PluginConfig>
+	<Field id="Title" type="label">
+		<Label>Security Camera</Label>
+	</Field>
+	<Field id="MainDirectory" type="textfield" defaultValue="/Library/Application Support/Perceptive Automation/Indigo 6/IndigoWebServer/video">
+		<Label>Main Directory:</Label>
+	</Field>
+		<Field id="SnapshotDirectory" type="textfield" defaultValue="/Library/Application Support/Perceptive Automation/Indigo 6/IndigoWebServer/video">
+		<Label>Snapshot Directory:</Label>
+	</Field>
+	<Field id="IMDirectory" type="textfield" defaultValue="/opt/local/bin/">
+		<Label>ImageMagick Directory:</Label>
+	</Field>
+	<Field id="CarouselCount" type="textfield" defaultValue="0" hidden="true">
+		<Label>Carousel Count:</Label>
+	</Field>
+	<Field id="CarouselTimer" type="textfield" defaultValue="0" hidden="true">
+		<Label>Carousel Timer:</Label>
+	</Field>
+	<Field id="CarouselOn" type="textfield" defaultValue="true" hidden="true">
+		<Label>Carousel On:</Label>
+	</Field>
+	<Field id="MasterCamera" type="textfield" defaultValue="0" hidden="true">
+		<Label>Master Camera:</Label>
+	</Field>
+	<Field id="SavedVideo" type="textfield" defaultValue="0" hidden="true">
+		<Label>Saved Video:</Label>
+	</Field>
+	<Field id="PlayRecording" type="textfield" defaultValue="0" hidden="true">
+		<Label>Play Recording:</Label>
+	</Field>
+	<Field id="RecordingFrame" type="textfield" defaultValue="0" hidden="true">
+		<Label>Recording Timer:</Label>
+	</Field>
+	<Field id="RecordingCount" type="textfield" defaultValue="0" hidden="true">
+		<Label>Recording Timer:</Label>
+	</Field>
+	<Field id="RecordingFlag" type="textfield" defaultValue="0" hidden="true">
+		<Label>Recording Flag:</Label>
+	</Field>
+	<Field id="Debug" type="checkbox" defaultValue="false">
+		<Label>Debug Mode:</Label>
+		<Description>Debug Mode On (Use Carefully)</Description>
+	</Field>
+	<Field id="MasterThreads" type="textfield" defaultValue="0" hidden="true">
+		<Label>Master Thread Count:</Label>
+		<Description>Number of Master active threads - for debugging</Description>
+	</Field>
+</PluginConfig>
