@@ -18,7 +18,7 @@ import base64
 import os
 import shutil
 import smtplib
-#from ghpu import GitHubPluginUpdater
+from ghpu import GitHubPluginUpdater
 
 # Note the "indigo" module is automatically imported and made available inside
 # our global name space by the host process.
@@ -295,7 +295,7 @@ def MasterImage(RecordingFlag, MasterRecording, MasterCameraDir, MainDir, Master
 		FileFrom = RecordingImage
 	else:
 		FileFrom = CurrentImage	
-
+	
 	try:
 		ChangeFile(FileFrom, MasterImage1)
 		ChangeFile(CurrentImage, MasterImage2)
@@ -308,6 +308,9 @@ def MasterImage(RecordingFlag, MasterRecording, MasterCameraDir, MainDir, Master
 
 def ChangeFile(FromFile, ToFile):
 	#Update Symbolic Link
+	
+	#self.debugLog("Change Sym Link" + " From : " + FromFile + " To: " + ToFile)
+	
 	LinkCommand = "ln -s -f \"" + FromFile + "\" \"" + ToFile + "\""
 	
 	proc = subprocess.Popen(LinkCommand, stdout=subprocess.PIPE, shell=True)
@@ -319,7 +322,7 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
 		indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
-		#self.updater = GitHubPluginUpdater(self)
+		self.updater = GitHubPluginUpdater(self)
 
 	def __del__(self):
 		indigo.PluginBase.__del__(self)
@@ -327,10 +330,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def startup(self):
 		self.debugLog(u"startup called")
-		#self.updater.checkForUpdate()
+		indigo.server.log("Checking for update")
+		self.updater.checkForUpdate()
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 		MainDirTest = os.path.isdir(MainDir)
 		indigo.activePlugin.pluginPrefs["MasterThreads"] = "0"
+		indigo.activePlugin.pluginPrefs["CarouselCount"] = "0"		
+		indigo.activePlugin.pluginPrefs["CarouselTimer"] = "0"	
 		if MainDirTest is False:
 			indigo.server.log("Home image directory not found.")
 			os.makedirs(MainDir)
@@ -439,6 +445,7 @@ class Plugin(indigo.PluginBase):
 					self.debugLog(DeviceID)
 					MasterCameraDir = ""
 					MasterCameraName = ""
+					
 					try:
 						MasterCameraDevice = indigo.devices[DeviceID]
 						MasterCameraName = MasterCameraDevice.pluginProps["CameraName"]
@@ -475,7 +482,7 @@ class Plugin(indigo.PluginBase):
 					#CameraPassword = device.pluginProps["CameraPassword"]
 					CameraRotation = device.pluginProps["CameraRotation"]
 					CameraTimeout = device.pluginProps["CameraTimeout"]
-					ImageAveDiff = device.pluginProps["ImageAveDiff"]
+					#ImageAveDiff = device.pluginProps["ImageAveDiff"]
 					ImageThreadCount = int(device.pluginProps["ImageThreads"])
 					MotionThreadCount = int(device.pluginProps["MotionThreads"])
 					CameraPath = ""
@@ -488,11 +495,10 @@ class Plugin(indigo.PluginBase):
 						#device.pluginProps["CameraPassword"] = ""
 					#else:
 					CameraPath = "http://" + CameraAddress
-						
 					CameraDir = MainDir + "/" + CameraName
 					
 					newProps = device.pluginProps
-					self.debugLog(CameraPath)
+					self.debugLog(CameraName + " : " + CameraAddress)
 					
 					#capture video
 					if CameraState != "Off":
