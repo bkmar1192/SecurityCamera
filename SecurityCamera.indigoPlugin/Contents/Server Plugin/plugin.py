@@ -443,12 +443,12 @@ class Plugin(indigo.PluginBase):
 						MasterCameraDevice = indigo.devices[DeviceID]
 						MasterCameraName = MasterCameraDevice.pluginProps["CameraName"]
 						MasterCameraDir = MainDir + "/" + MasterCameraName
+						MasterRecording = PlayRecording + "/" + RecordingFrame
+						thread.start_new_thread( MasterImage, (RecordingFlag, MasterRecording, MasterCameraDir, MainDir, MasterCameraName) )
 						self.debugLog(MasterCameraDir)
 					except:
 						self.debugLog("Master Camera image not found.")
-					MasterRecording = PlayRecording + "/" + RecordingFrame
-					thread.start_new_thread( MasterImage, (RecordingFlag, MasterRecording, MasterCameraDir, MainDir, MasterCameraName) )
-				
+					
 				#Create camera device list
 				#Clear threadcount
 				alist = []
