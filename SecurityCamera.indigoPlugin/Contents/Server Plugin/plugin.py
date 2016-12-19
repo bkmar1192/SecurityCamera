@@ -451,10 +451,14 @@ class Plugin(indigo.PluginBase):
 					
 				#Create camera device list
 				#Clear threadcount
+				self.debugLog("Camera List Build")
 				alist = []
 				for sdevice in indigo.devices.iter("self"):
+					self.debugLog(sdevice.pluginProps["CameraName"])
 					alist.append(sdevice.pluginProps["CameraName"] )
-				
+
+				self.debugLog("Camera List Build Complete")
+					
 				for device in indigo.devices.iter("self"):
 					
 					#Set State Timers
@@ -465,6 +469,8 @@ class Plugin(indigo.PluginBase):
 						
 					OfflineSeconds = device.states["OfflineSeconds"]
 					device.updateStateOnServer("RecordSeconds", value=RecordSeconds)
+					
+					self.debugLog("Start Variable setup")
 					
 					#set up device variables
 					CameraState = device.states["CameraState"]
