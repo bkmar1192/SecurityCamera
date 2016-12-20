@@ -331,6 +331,7 @@ class Plugin(indigo.PluginBase):
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 		MainDirTest = os.path.isdir(MainDir)
 		indigo.activePlugin.pluginPrefs["MasterThreads"] = "0"
+		indigo.activePlugin.pluginPrefs["CarouselCount"] = "0"
 		if MainDirTest is False:
 			indigo.server.log("Home image directory not found.")
 			os.makedirs(MainDir)
