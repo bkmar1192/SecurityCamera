@@ -482,7 +482,7 @@ class Plugin(indigo.PluginBase):
 					#CameraPassword = device.pluginProps["CameraPassword"]
 					CameraRotation = device.pluginProps["CameraRotation"]
 					CameraTimeout = device.pluginProps["CameraTimeout"]
-					ImageAveDiff = device.pluginProps["ImageAveDiff"]
+					ImageAveDiff = device.states["ImageAveDiff"]
 					ImageThreadCount = int(device.pluginProps["ImageThreads"])
 					MotionThreadCount = int(device.pluginProps["MotionThreads"])
 					CameraPath = ""
