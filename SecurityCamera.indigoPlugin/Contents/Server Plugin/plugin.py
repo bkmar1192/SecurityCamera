@@ -351,10 +351,14 @@ class Plugin(indigo.PluginBase):
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 
 		indigo.activePlugin.pluginPrefs["MasterThreads"] = "0"
+<<<<<<< HEAD
 		indigo.activePlugin.pluginPrefs["CarouselCount"] = "0"		
 		indigo.activePlugin.pluginPrefs["CarouselTimer"] = "0"	
 		
 		MainDirTest = os.path.isdir(MainDir)
+=======
+		indigo.activePlugin.pluginPrefs["CarouselCount"] = "0"
+>>>>>>> master
 		if MainDirTest is False:
 			indigo.server.log("Home image directory not found.")
 			os.makedirs(MainDir)
@@ -453,11 +457,38 @@ class Plugin(indigo.PluginBase):
 				RecordingFrame = RecordingFrame[-5:] + ".jpg"
 				indigo.activePlugin.pluginPrefs["RecordingFrame"] = RecordingFrame
 				indigo.activePlugin.pluginPrefs["RecordingCount"] = RecordingCount		
+<<<<<<< HEAD
 										
 				#Create camera device list
+=======
+				
+				#Copy Master Image
+				MasterThreads = int(indigo.activePlugin.pluginPrefs["MasterThreads"])
+				self.debugLog("Start Master Image Copy")
+				if MasterThreads == 0:
+					DeviceID = int(indigo.activePlugin.pluginPrefs["MasterCamera"])
+					self.debugLog(DeviceID)
+					MasterCameraDir = ""
+					MasterCameraName = ""
+					try:
+						MasterCameraDevice = indigo.devices[DeviceID]
+						MasterCameraName = MasterCameraDevice.pluginProps["CameraName"]
+						MasterCameraDir = MainDir + "/" + MasterCameraName
+						MasterRecording = PlayRecording + "/" + RecordingFrame
+						thread.start_new_thread( MasterImage, (RecordingFlag, MasterRecording, MasterCameraDir, MainDir, MasterCameraName) )
+						self.debugLog(MasterCameraDir)
+					except:
+						self.debugLog("Master Camera image not found.")
+					
+				#Create camera device list
+				#Clear threadcount
+				self.debugLog("Camera List Build")
+>>>>>>> master
 				alist = []
 				for sdevice in indigo.devices.iter("self"):
+					self.debugLog(sdevice.pluginProps["CameraName"])
 					alist.append(sdevice.pluginProps["CameraName"] )
+<<<<<<< HEAD
 				
 				################################################################################
 				#
@@ -488,6 +519,11 @@ class Plugin(indigo.PluginBase):
 				#
 				################################################################################
 				
+=======
+
+				self.debugLog("Camera List Build Complete")
+					
+>>>>>>> master
 				for device in indigo.devices.iter("self"):
 						
 					CameraState = device.states["CameraState"]
@@ -503,7 +539,45 @@ class Plugin(indigo.PluginBase):
 						device.updateStateOnServer("RecordSeconds", value=0)
 					else:
 						RecordSeconds = device.states["RecordSeconds"] + 1
+<<<<<<< HEAD
 						device.updateStateOnServer("RecordSeconds", value=RecordSeconds)
+=======
+						
+					OfflineSeconds = device.states["OfflineSeconds"]
+					device.updateStateOnServer("RecordSeconds", value=RecordSeconds)
+					
+					self.debugLog("Start Variable setup")
+					
+					#set up device variables
+					CameraState = device.states["CameraState"]
+					CarouselCamera = alist[CarouselCount]
+					CameraName = device.pluginProps["CameraName"]
+					CameraAddress = device.pluginProps["CameraAddress"]
+					#CameraUserName = device.pluginProps["CameraUserName"]
+					#CameraPassword = device.pluginProps["CameraPassword"]
+					CameraRotation = device.pluginProps["CameraRotation"]
+					CameraTimeout = device.pluginProps["CameraTimeout"]
+					ImageAveDiff = device.states["ImageAveDiff"]
+					ImageThreadCount = int(device.pluginProps["ImageThreads"])
+					MotionThreadCount = int(device.pluginProps["MotionThreads"])
+					CameraPath = ""
+					
+					#UserPwd = CameraUserName + ":" + CameraPassword + "@"
+					#if CameraUserName > "":
+						#CameraPath = "http://" + UserPwd + CameraAddress
+						#device.pluginProps["CameraAddress"] = UserPwd + CameraAddress
+						#device.pluginProps["CameraUserName"] = ""
+						#device.pluginProps["CameraPassword"] = ""
+					#else:
+					CameraPath = "http://" + CameraAddress
+						
+					CameraDir = MainDir + "/" + CameraName
+					
+					newProps = device.pluginProps
+					self.debugLog(CameraPath)
+					
+					#capture video
+>>>>>>> master
 					if CameraState != "Off":
 						if ImageThreadCount <= 0:
 							threadid = thread.start_new_thread( GetImage, (device,))
