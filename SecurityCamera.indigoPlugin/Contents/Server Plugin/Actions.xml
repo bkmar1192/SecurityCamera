@@ -32,6 +32,18 @@
 		<Name>Record Camera</Name>
 		<CallbackMethod>RecordCamera</CallbackMethod>
 	</Action>
+	<Action id="CameraCommand">
+		<Name>Camera Command</Name>
+		<ConfigUI>
+			<Field id="CameraCommandURL" type="textfield">
+				<Label>Camera Command:</Label>
+			</Field>
+			<Field id="ReturnVariable" type="textfield">
+				<Label>Return Variable:</Label>
+			</Field>
+		</ConfigUI>
+		<CallbackMethod>CameraCommand</CallbackMethod>
+	</Action>
 	<Action id="PlayRecording" deviceFilter="self">
 		<Name>Play</Name>
 		<ConfigUI>
