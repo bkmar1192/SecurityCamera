@@ -18,6 +18,23 @@
 			
 			<Field id="simpleSeparator1" type="separator" />
 			
+			<Field id="Label1" type="label" >
+				<Label>If Raw Image is turned on, image manipulation for this device will be disabled.  Images will be displayed as they were captured from the camera.
+				</Label>
+			</Field>
+			
+			<Field id="Raw" type="checkbox" defaultValue="false">
+				<Label>Raw Image:</Label>
+				<Description>Raw Image Mode On</Description>
+			</Field>
+			
+			<Field id="MotionOff" type="checkbox" defaultValue="false">
+				<Label>Motion Off:</Label>
+				<Description>Motion Detection Off</Description>
+			</Field>
+			
+			<Field id="simpleSeparator2" type="separator" />
+				
 			<Field id="CaptureSettings" type="label" >
 				<Label>Capture Settings: </Label>
 			</Field>
@@ -58,22 +75,23 @@
 				</List>
 			</Field>
 		
-			<Field id="simpleSeparator2" type="separator" />
+			<Field id="simpleSeparator3" type="separator" />
+			
 			<Field id="ImageSettings" type="label" >
 				<Label>Image Settings: </Label>
 			</Field>
 		
-			<Field type="checkbox" id="AutoLevel" defaultValue="false">
-				<Label>Auto Level: </Label>
+			<Field type="textfield" id="Brightness" defaultValue="1">
+				<Label>Brightness (0-2,1=orig): </Label>
 			</Field>
-			<Field type="checkbox" id="Normalize" defaultValue="false">
-				<Label>Normalize Contrast: </Label>
+			<Field type="textfield" id="Contrast" defaultValue="1">
+				<Label>Contrast (0-2,1=orig): </Label>
 			</Field>
-			<Field type="checkbox" id="Enhance" defaultValue="false">
-				<Label>Enhance: </Label>
+			<Field type="textfield" id="Sharpness" defaultValue="1">
+				<Label>Sharpness (0-2,1=orig): </Label>
 			</Field>
 			
-			<Field id="simpleSeparator3" type="separator" />
+			<Field id="simpleSeparator4" type="separator" />
 			<Field id="MotionSettings" type="label" >
 				<Label>Motion Settings: </Label>
 			</Field>
@@ -85,7 +103,7 @@
 				<Label>Minimum Sensitivity :</Label>
 			</Field>
 			<Field id="MaxSensitivity" type="textfield" defaultValue=".15">
-				<Label>Miaximum Sensitivity :</Label>
+				<Label>Maximum Sensitivity :</Label>
 			</Field>
 			<Field id="FramesDifferent" type="textfield" defaultValue="5">
 				<Label>Different Frames in a Row:</Label>

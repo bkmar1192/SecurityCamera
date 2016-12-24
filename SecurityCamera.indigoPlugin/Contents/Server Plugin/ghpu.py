@@ -106,6 +106,22 @@ class GitHubPluginUpdater(object):
             return None
 
         return update
+        
+    #---------------------------------------------------------------------------
+    # returns the update package, if there is one
+    def getVersion(self):
+    
+        update = self.getLatestRelease()
+
+        if (update == None):
+            self._debug('No release available')
+            return None
+
+        # assume the tag is the release version
+        latestVersion = update['tag_name'].lstrip('v')
+        self._debug('Latest release is: %s' % latestVersion)
+        
+        return latestVersion
 
     #---------------------------------------------------------------------------
     # returns the latest release information from a given user / repo
