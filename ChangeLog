@@ -1,4 +1,19 @@
 
+1.4
+	- Moved all code away from ImageMagick and to native Python Pillow code for all image manipulation
+		- Run 'sudo pip install Pillow' before updating
+		- May need to open and save each device
+		- Move to a more native program that was not reliant on external code
+		- Fixed issue with AirFoil
+	- Added check version code to assist with auto updates.
+	- Significant code optimization to improve future changes and updates.
+	- Added ability to run a camera command (url command).
+	- Added ability to turn off image manipulation
+	- Added ability to turn off motion detecting
+
+1.3.10
+   - bug fixes
+
 1.3.6
    - Added a max Sensitivity and a Minimum Sensitivity to allow for more presise motion configuration
    - bug fix on creating a new device
