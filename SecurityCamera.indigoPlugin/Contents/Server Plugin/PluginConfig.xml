@@ -9,7 +9,7 @@
 		<Field id="SnapshotDirectory" type="textfield" defaultValue="/Library/Application Support/Perceptive Automation/Indigo 6/IndigoWebServer/video">
 		<Label>Snapshot Directory:</Label>
 	</Field>
-	<Field id="IMDirectory" type="textfield" defaultValue="/opt/local/bin/">
+	<Field id="IMDirectory" type="textfield" defaultValue="/opt/local/bin/" hidden="true">
 		<Label>ImageMagick Directory:</Label>
 	</Field>
 	<Field id="CarouselCount" type="textfield" defaultValue="0" hidden="true">

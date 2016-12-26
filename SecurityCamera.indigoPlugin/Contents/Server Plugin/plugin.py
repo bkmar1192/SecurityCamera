@@ -9,9 +9,11 @@ import os
 import sys
 import time
 import thread
+import threading
 import subprocess
 import datetime
 import urllib
+import urllib2
 import shutil
 import math
 
@@ -55,7 +57,7 @@ def GetSnapshot(device):
 	CameraAddress = device.pluginProps["CameraAddress"]
 	URLAddress = "http://" + CameraAddress
 	CameraTimeout = device.pluginProps["CameraTimeout"]
-
+	
 	#setup image enhancement parameters
 	RawImage = device.pluginProps["Raw"]
 	CameraRotation = device.pluginProps["CameraRotation"]
@@ -67,16 +69,13 @@ def GetSnapshot(device):
 	Contrast = device.pluginProps["Contrast"]
 	Sharpness = device.pluginProps["Sharpness"]
 
+	ImageFound = True
 	try:
 		urllib.urlretrieve(URLAddress, OrigImage)
-		ImageFound = True
 		device.updateStateOnServer("CameraState", value="On")
-		device.updateStateOnServer("OfflineSeconds", value="0")
 	except:
-		OfflineSeconds = int(device.states["OfflineSeconds"]) + 1
-		device.updateStateOnServer("OfflineSeconds", value=str(OfflineSeconds))
 		ImageFound = False
-		
+	
 	if ImageFound:
 		if str(RawImage) == "False":
 			#get image
@@ -118,28 +117,29 @@ def GetSnapshot(device):
 			#Save image without border
 				final_img = new_img
 		else:
-			
 			final_img = Image.open(OrigImage)
 	else:
-		if int(OfflineSeconds) >= int(CameraTimeout):
-			device.updateStateOnServer("OfflineSeconds", value="0")
-			device.updateStateOnServer("CameraState", value="Unavailable")
-			final_img = Image.open(NoImage)
-		else:
-			final_img = Image.open(OrigImage)
-			
+		final_img = Image.open(OrigImage)
+		#offline code
+	
 	return final_img
 
 def GetImage(device):
 	##################Capture image for video
-
+	
+	#Update Threadcount
+	localPropsCopy = device.pluginProps
+	localPropsCopy["ImageThreads"] = "1"
+	device.replacePluginPropsOnServer(localPropsCopy)
+	
 	CameraName = device.pluginProps["CameraName"]
 	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 	CameraDir = MainDir + "/" + CameraName
 	CurrentImage = CameraDir + "/CurrentImage.jpg"
 	NewImage = CameraDir + "/00001.jpg"
-
+	
 	img = GetSnapshot(device)
+	
 	for num in reversed(range(1, 20)):
 		fromfile = "0000" + str(num)
 		fromfile = CameraDir + "/" + fromfile[-5:] + ".jpg"
@@ -147,28 +147,30 @@ def GetImage(device):
 		tofile = CameraDir + "/" + tofile[-5:] + ".jpg"
 		if os.path.isfile(fromfile):
 			os.rename(fromfile, tofile)	
-				
+
 	#Save image
+	width, height = img.size
 	try:
 		img.save(CurrentImage,optimize=True,quality=75)
 	except Exception as errtxt:
-		indigo.server.log("error saving current image")
-		
+		indigo.server.log(CameraName + ": error saving current image: w" + str(width) + " h" + str(height))
+	
 	try:
 		img.save(NewImage,optimize=True,quality=75)
 	except Exception as errtxt:
-		indigo.server.log("error saving 001 image")
+		indigo.server.log(CameraName + ": error saving 001 image")
 	
 	#Update Threadcount
-	ThreadCount2 = int(device.pluginProps["ImageThreads"])-1
-	device.pluginProps["ImageThreads"] = str(ThreadCount2)
+	localPropsCopy["ImageThreads"] = "0"
+	device.replacePluginPropsOnServer(localPropsCopy)
 
 def MotionCheck(device):
 	##################Check for motion
 
 	#Update Threadcount
-	ThreadCount2 = int(device.pluginProps["MotionThreads"])+1
-	device.pluginProps["MotionThreads"] = str(ThreadCount2)
+	localPropsCopy = device.pluginProps
+	localPropsCopy["MotionThreads"] = "1"
+	device.replacePluginPropsOnServer(localPropsCopy)
 
 	#variable setup
 	MaxSensitivity = float(device.pluginProps["MaxSensitivity"])
@@ -209,7 +211,7 @@ def MotionCheck(device):
 			MotionSeconds = device.states["MotionSeconds"] + 1
 			device.updateStateOnServer("MotionSeconds", value=MotionSeconds)
 	else:
-		indigo.server.log(str(ImageNewAve))
+		indigo.server.log("Motion Check: " + str(ImageNewAve))
 		device.updateStateOnServer("ImageAveDiff", value="0")
 		device.updateStateOnServer("MotionSeconds", value=0)
 
@@ -230,9 +232,9 @@ def MotionCheck(device):
 		device.updateStateOnServer("MotionDetected", value="false")
 		
 	#Update Threadcount
-	ThreadCount2 = int(device.pluginProps["MotionThreads"])-1
-	device.pluginProps["MotionThreads"] = str(ThreadCount2)
-
+	localPropsCopy["MotionThreads"] = "0"
+	device.replacePluginPropsOnServer(localPropsCopy)
+	
 def GetMosaic(device):
 	##################Create tiled version of last 6 images
 
@@ -265,6 +267,7 @@ def GetMosaic(device):
 	#save mosaic
 	mosaic_img.save(MosaicImage)
 
+
 def MasterImage(sub, thread):
 	##################Display a master image of different cameras
 	
@@ -294,7 +297,7 @@ def MasterImage(sub, thread):
 		ChangeFile(CurrentImage, MasterImage2)
 		ChangeFile(RecordingImage, MasterImage3)
 	except Exception as errtxt:
-		indigo.server.log(str(errtxt))
+		indigo.server.log("Master: " + str(errtxt))
 
 def ChangeFile(FromFile, ToFile):
 	##################Change dynamic link
@@ -322,7 +325,7 @@ def RunCarousel(CarouselCamera):
 	try:
 		ChangeFile (CurrentImage, CarouselImage)
 	except:
-		indigo.server.log("Error copying Carousel Image: " + str(CarouselCount))
+		indigo.server.log("Carousel Image: " + str(CarouselCount))
 
 ################################################################################
 #
@@ -344,8 +347,10 @@ class Plugin(indigo.PluginBase):
 		indigo.server.log("Checking for update")
 		ActiveVersion = str(self.pluginVersion)
 		CurrentVersion = str(self.updater.getVersion())
-		if self.updater.checkForUpdate(str(self.pluginVersion)) == False:
-			indigo.server.log("The current version of Security Camera is " + str(CurrentVersion) + " and you are running version " + str(ActiveVersion) + ".")
+		if ActiveVersion == CurrentVersion:
+			indigo.server.log("Running the current version of Security Camera")
+		else:
+			indigo.server.log("The current version of Security Camera is " + str(CurrentVersion) + " and the running version " + str(ActiveVersion) + ".")
 		
 		SnapshotDir = indigo.activePlugin.pluginPrefs["SnapshotDirectory"]
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
@@ -353,6 +358,14 @@ class Plugin(indigo.PluginBase):
 		indigo.activePlugin.pluginPrefs["MasterThreads"] = "0"
 		indigo.activePlugin.pluginPrefs["CarouselCount"] = "0"		
 		indigo.activePlugin.pluginPrefs["CarouselTimer"] = "0"	
+		
+		#clear Thread Count
+		for sdevice in indigo.devices.iter("self"):
+			CameraName = sdevice.pluginProps["CameraName"]
+			localPropsCopy = sdevice.pluginProps
+			localPropsCopy["ImageThreads"] = "0"
+			localPropsCopy["MotionThreads"] = "0"
+			sdevice.replacePluginPropsOnServer(localPropsCopy)
 		
 		MainDirTest = os.path.isdir(MainDir)
 		if MainDirTest is False:
@@ -389,20 +402,20 @@ class Plugin(indigo.PluginBase):
 	def deviceStartComm(self, dev):
 		dev.stateListOrDisplayStateIdChanged()
 	
+		localPropsCopy = dev.pluginProps
 		CameraName = dev.pluginProps["CameraName"]
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 		IMDir = indigo.activePlugin.pluginPrefs["IMDirectory"]
 		CameraDir = MainDir + "/" + CameraName
 		NotActiveImage = CameraDir + "/NotActive.jpg"
-		dev.pluginProps["ImageThreads"] = "0"
-		dev.pluginProps["MotionThreads"] = "0"
 
 		CameraDirTest = os.path.isdir(CameraDir)		
 		if CameraDirTest is False:
 			indigo.server.log("Camera image directory not found.")
 			os.makedirs(CameraDir)
 			indigo.server.log("Created: " + CameraDir)
-		dev.updateStateOnServer("CameraState", value="On")
+		if dev.states["CameraState"] != "Off":
+			dev.updateStateOnServer("CameraState", value="On")
 		
 		NotActiveImageTest = os.path.isfile(NotActiveImage)
 		if NotActiveImageTest is False:
@@ -489,13 +502,15 @@ class Plugin(indigo.PluginBase):
 				################################################################################
 				
 				for device in indigo.devices.iter("self"):
-						
+					
 					CameraState = device.states["CameraState"]
 					CameraTimeout = int(device.pluginProps["CameraTimeout"])
 					OfflineSeconds = int(device.states["OfflineSeconds"])
 					ImageThreadCount = int(device.pluginProps["ImageThreads"])
 					MotionThreadCount = int(device.pluginProps["MotionThreads"])
+					MotionThreadSeconds = int(device.pluginProps["MotionThreadSeconds"])
 					MotionOff = device.pluginProps["MotionOff"]
+					localPropsCopy = device.pluginProps
 					
 					#Set State Timers
 					if device.states["RecordSeconds"] > 3600:
@@ -504,13 +519,39 @@ class Plugin(indigo.PluginBase):
 					else:
 						RecordSeconds = device.states["RecordSeconds"] + 1
 						device.updateStateOnServer("RecordSeconds", value=RecordSeconds)
-					if CameraState != "Off":
+					
+					if str(CameraState) != "Off":
+						#Get Images
 						if ImageThreadCount <= 0:
+							device.updateStateOnServer("OfflineSeconds", value="0")
 							threadid = thread.start_new_thread( GetImage, (device,))
+						else:
+							OfflineSeconds += 1
+							device.updateStateOnServer("OfflineSeconds", value=str(OfflineSeconds))
+							localPropsCopy["OfflineSeconds"] = str(OfflineSeconds)
+							device.replacePluginPropsOnServer(localPropsCopy)
+							if OfflineSeconds >= CameraTimeout:
+								localPropsCopy = device.pluginProps
+								localPropsCopy["ImageThreads"] = "0"
+								localPropsCopy["OfflineSeconds"] = "0"
+								device.replacePluginPropsOnServer(localPropsCopy)
+								device.updateStateOnServer("CameraState", value="Unavailable")
+						
+						#Check Motion
 						if str(MotionOff) == "False":
 							if MotionThreadCount <= 0:
 								threadid = thread.start_new_thread( MotionCheck, (device,))
-
+							else:
+								MotionThreadSeconds += 1
+								localPropsCopy["MotionThreadSeconds"] = str(MotionThreadSeconds)
+								device.replacePluginPropsOnServer(localPropsCopy)
+								if MotionThreadSeconds >= 10:
+									localPropsCopy = device.pluginProps
+									localPropsCopy["MotionThreads"] = "0"
+									localPropsCopy["MotionThreadSeconds"] = "0"
+									device.replacePluginPropsOnServer(localPropsCopy)
+								
+		
 		except self.StopThread:
 			pass
 
@@ -523,11 +564,19 @@ class Plugin(indigo.PluginBase):
 	def checkForUpdate(self):
 		ActiveVersion = str(self.pluginVersion)
 		CurrentVersion = str(self.updater.getVersion())
-		if self.updater.checkForUpdate(str(self.pluginVersion)) == False:
-			indigo.server.log("The current version of Security Camera is " + str(CurrentVersion) + " and you are running version " + str(ActiveVersion) + ".")
+		if ActiveVersion == CurrentVersion:
+			indigo.server.log("Running the most recent version of Security Camera")
+		else:
+			indigo.server.log("The current version of Security Camera is " + str(CurrentVersion) + " and the running version " + str(ActiveVersion) + ".")
 		
 	def updatePlugin(self):
-		indigo.server.log(u"updatePlugin called")
+		ActiveVersion = str(self.pluginVersion)
+		CurrentVersion = str(self.updater.getVersion())
+		if ActiveVersion == CurrentVersion:
+			indigo.server.log("Already running the most recent version of Security Camera")
+		else:
+			indigo.server.log("The current version of Security Camera is " + str(CurrentVersion) + " and the running version " + str(ActiveVersion) + ".")
+			self.updater.update()
     	
 ################################################################################
 #
@@ -536,7 +585,6 @@ class Plugin(indigo.PluginBase):
 ################################################################################
 	
 	def StopCamera(self, pluginAction):
-		#PluginID = pluginAction.items()
 		CameraDevice = indigo.devices[pluginAction.deviceId]
 		CameraName = CameraDevice.pluginProps["CameraName"]
 		indigo.server.log("Stop Camera action called:" + CameraName)
@@ -655,7 +703,6 @@ class Plugin(indigo.PluginBase):
 		
 		try:
 			ReturnVar = indigo.variables[ReturnVariable]
-			indigo.server.log(ReturnVar.value)
 		except Exception as errtxt:
 			indigo.server.log(str(errtxt))
 			indigo.variable.create(ReturnVariable)
