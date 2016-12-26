@@ -143,6 +143,9 @@
 			<Field id="MotionThreads" type="textfield" defaultValue="0" hidden="true">
 				<Label>Motion Threads:</Label>
 			</Field>
+			<Field id="MotionThreadSeconds" type="textfield" defaultValue="0" hidden="true">
+				<Label>Seconds since last motion thread run:</Label>
+			</Field>
 		</ConfigUI>
 		<UiDisplayStateId>CameraState</UiDisplayStateId>
 		<States>
