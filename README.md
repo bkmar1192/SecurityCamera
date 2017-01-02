@@ -11,9 +11,6 @@ run the following from the command prompt: 'sudo pip install Pillow' .
 Plugin Configuration:
 ---------------------
 
-The plugin uses the Python Image Library (PIL/PILLOW).  Run the following command in a terminal 
-window:  sudo pip install pillow.
-
 Main Directory - is the base directory that all files will be saved.  A directory
 for each camera (device) will be created in this directory.  You can leave 
 this at the default location unless you want to store them somewhere else.
