@@ -495,10 +495,13 @@ class Plugin(indigo.PluginBase):
 				# Set Master Image
 				#
 				################################################################################
-				self.debugLog("     Starting Master Image")				
-				MasterID = int(indigo.activePlugin.pluginPrefs["MasterCamera"])
-				if MasterID != "":
-					MasterImage("Master", "Thread")
+				self.debugLog("     Starting Master Image")
+				try:
+					MasterID = int(indigo.activePlugin.pluginPrefs["MasterCamera"])
+					if MasterID != "":
+						MasterImage("Master", "Thread")
+				except:
+					self.debugLog("     Unable to run Master Image")
 				
 				################################################################################
 				#
