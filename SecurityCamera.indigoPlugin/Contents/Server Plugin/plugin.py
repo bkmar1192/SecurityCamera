@@ -477,36 +477,27 @@ class Plugin(indigo.PluginBase):
 				# Create image carousel
 				#
 				################################################################################
-	
+				self.debugLog("     Starting Carousel")
 				CarouselCount = int(indigo.activePlugin.pluginPrefs["CarouselCount"])
 				MaxCarouselCount = len(alist)
 				
 				if CarouselCount >= MaxCarouselCount-1:
 					indigo.activePlugin.pluginPrefs["CarouselCount"] = 0
 				
-				CarouselCamera = alist[CarouselCount]
-				RunCarousel(CarouselCamera)
+				try:
+					CarouselCamera = alist[CarouselCount]
+					RunCarousel(CarouselCamera)
+				except:
+					self.debugLog("     Unable to run Carousel")
 				
 				################################################################################
 				#
 				# Set Master Image
 				#
 				################################################################################
-				
+				self.debugLog("     Starting Master Image")				
 				MasterID = int(indigo.activePlugin.pluginPrefs["MasterCamera"])
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 				if MasterID != "":
-=======
-				if MasterID != 0:
->>>>>>> master
-=======
-				if MasterID != 0:
->>>>>>> master
-=======
-				if MasterID != 0:
->>>>>>> master
 					MasterImage("Master", "Thread")
 				
 				################################################################################
@@ -514,9 +505,9 @@ class Plugin(indigo.PluginBase):
 				# Start device loop
 				#
 				################################################################################
-				
+				self.debugLog("     Starting Device Loop")					
 				for device in indigo.devices.iter("self"):
-					
+					self.debugLog("     Starting Device Loop for:" + device.pluginProps["CameraName"])					
 					CameraState = device.states["CameraState"]
 					CameraTimeout = int(device.pluginProps["CameraTimeout"])
 					OfflineSeconds = int(device.states["OfflineSeconds"])
@@ -525,7 +516,8 @@ class Plugin(indigo.PluginBase):
 					MotionThreadSeconds = int(device.pluginProps["MotionThreadSeconds"])
 					MotionOff = device.pluginProps["MotionOff"]
 					localPropsCopy = device.pluginProps
-					
+
+					self.debugLog("          Set State Timers")					
 					#Set State Timers
 					if device.states["RecordSeconds"] > 3600:
 						RecordSeconds = 0
@@ -533,7 +525,8 @@ class Plugin(indigo.PluginBase):
 					else:
 						RecordSeconds = device.states["RecordSeconds"] + 1
 						device.updateStateOnServer("RecordSeconds", value=RecordSeconds)
-					
+
+					self.debugLog("          Get Camera Image")						
 					if str(CameraState) != "Off":
 						#Get Images
 						if ImageThreadCount <= 0:
@@ -550,7 +543,8 @@ class Plugin(indigo.PluginBase):
 								localPropsCopy["OfflineSeconds"] = "0"
 								device.replacePluginPropsOnServer(localPropsCopy)
 								device.updateStateOnServer("CameraState", value="Unavailable")
-						
+
+						self.debugLog("          Check Motion")						
 						#Check Motion
 						if str(MotionOff) == "False":
 							if MotionThreadCount <= 0:
