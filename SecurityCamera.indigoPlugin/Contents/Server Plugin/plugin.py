@@ -494,7 +494,15 @@ class Plugin(indigo.PluginBase):
 				################################################################################
 				
 				MasterID = int(indigo.activePlugin.pluginPrefs["MasterCamera"])
+<<<<<<< HEAD
+<<<<<<< HEAD
 				if MasterID != "":
+=======
+				if MasterID != 0:
+>>>>>>> master
+=======
+				if MasterID != 0:
+>>>>>>> master
 					MasterImage("Master", "Thread")
 				
 				################################################################################
