@@ -1,5 +1,8 @@
 # SecurityCamera
 Security Camera Plugin for Indigo
+By Bert Martin
+
+
 
 This plugin is designed to be used for security cameras that provide
 access to a refreshing image file.  Although it was designed with Security 
