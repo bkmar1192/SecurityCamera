@@ -6,6 +6,8 @@
 
 import indigo
 import os
+from os import listdir
+from os.path import isfile, join
 import sys
 import time
 import thread
@@ -25,6 +27,8 @@ from PIL import ImageDraw
 from PIL import ImageChops 
 from PIL import ImageEnhance
 
+Intiation = True
+
 # Note the "indigo" module is automatically imported and made available inside
 # our global name space by the host process.
 
@@ -33,6 +37,26 @@ from PIL import ImageEnhance
 # Image Procedures
 #
 ################################################################################
+
+def getSortedDir(path, srch, start, finish):
+
+	filter_list = []
+
+	name_list = [f for f in listdir(path) if isfile(join(path, f))]
+	full_list = [os.path.join(path,i) for i in name_list]
+	time_sorted_list = sorted(full_list, key=os.path.getmtime, reverse=True)
+	for file in time_sorted_list:
+		if file.find(srch) != -1:
+			filter_list.append(file) 
+	
+	if start < 0:
+		start = 0
+
+	if finish > len(filter_list):
+		finish = len(filter_list)	
+
+	final_list = filter_list[start:finish]
+	return final_list
 
 def rmsdiff(im1, im2):
 	##################Calculate the root mean square difference of two images
@@ -45,7 +69,7 @@ def rmsdiff(im1, im2):
 
 def GetSnapshot(device):
 	##################Get single image
-
+	
 	nowtime = datetime.datetime.now()
 	displaytime = str(nowtime).split(".")[0]
 	CameraName = device.pluginProps["CameraName"]
@@ -53,7 +77,7 @@ def GetSnapshot(device):
 	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 	CameraDir = MainDir + "/" + CameraName
 	OrigImage = CameraDir + "/OrigImage.jpg"
-	NoImage = CameraDir + "/NotActive.jpg"
+	CurrentImage = CameraDir + "/CurrentImage.jpg"
 	CameraAddress = device.pluginProps["CameraAddress"]
 	URLAddress = "http://" + CameraAddress
 	CameraTimeout = device.pluginProps["CameraTimeout"]
@@ -68,10 +92,14 @@ def GetSnapshot(device):
 	Brightness = device.pluginProps["Brightness"]
 	Contrast = device.pluginProps["Contrast"]
 	Sharpness = device.pluginProps["Sharpness"]
+	OfflineSeconds = int(device.states["OfflineSeconds"])
 
 	ImageFound = True
+
 	try:
-		urllib.urlretrieve(URLAddress, OrigImage)
+		f = urllib.urlopen(URLAddress)
+		with open(OrigImage, "wb") as imgFile:
+			imgFile.write(f.read())
 		device.updateStateOnServer("CameraState", value="On")
 	except:
 		ImageFound = False
@@ -119,58 +147,54 @@ def GetSnapshot(device):
 		else:
 			final_img = Image.open(OrigImage)
 	else:
-		final_img = Image.open(OrigImage)
-		#offline code
-	
+		OfflineSeconds += 1
+		device.updateStateOnServer("OfflineSeconds", value=str(OfflineSeconds))
+		final_img = Image.open(CurrentImage)
+
 	return final_img
 
 def GetImage(device):
 	##################Capture image for video
-	
+
 	#Update Threadcount
 	localPropsCopy = device.pluginProps
-	localPropsCopy["ImageThreads"] = "1"
-	device.replacePluginPropsOnServer(localPropsCopy)
 	
 	CameraName = device.pluginProps["CameraName"]
 	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 	CameraDir = MainDir + "/" + CameraName
+	TempImage = CameraDir + "/TempImage.jpg"
 	CurrentImage = CameraDir + "/CurrentImage.jpg"
-	NewImage = CameraDir + "/00001.jpg"
 	
+	imagedate = time.strftime("%m.%d.%Y.%H.%M.%S")
+	NewImage = CameraDir + "/img_" + imagedate + ".jpg"	
 	img = GetSnapshot(device)
-	
-	for num in reversed(range(1, 20)):
-		fromfile = "0000" + str(num)
-		fromfile = CameraDir + "/" + fromfile[-5:] + ".jpg"
-		tofile = "0000" + str(num+1)
-		tofile = CameraDir + "/" + tofile[-5:] + ".jpg"
-		if os.path.isfile(fromfile):
-			os.rename(fromfile, tofile)	
 
-	#Save image
-	width, height = img.size
-	try:
-		img.save(CurrentImage,optimize=True,quality=75)
-	except Exception as errtxt:
-		indigo.server.log(CameraName + ": error saving current image: w" + str(width) + " h" + str(height))
+	imagecount = []
+	imagelist = [f for f in listdir(CameraDir) if isfile(join(CameraDir, f))]
+	for file in imagelist:
+		if file.find("img") != -1:
+			imagecount.append(file)
 	
-	try:
-		img.save(NewImage,optimize=True,quality=75)
-	except Exception as errtxt:
-		indigo.server.log(CameraName + ": error saving 001 image")
+	if len(imagecount) > 30:
+		sortedList = getSortedDir(CameraDir, "img", 30, 100)
 	
-	#Update Threadcount
-	localPropsCopy["ImageThreads"] = "0"
-	device.replacePluginPropsOnServer(localPropsCopy)
+	try:	
+		for file in sortedList:
+			os.remove(file)
+	except:
+		pass		
+		
+	img.save(NewImage,optimize=True,quality=70)
+	shutil.copy(NewImage, TempImage)
+	os.rename(TempImage, CurrentImage)
 
 def MotionCheck(device):
 	##################Check for motion
 
 	#Update Threadcount
 	localPropsCopy = device.pluginProps
-	localPropsCopy["MotionThreads"] = "1"
-	device.replacePluginPropsOnServer(localPropsCopy)
+	#localPropsCopy["MotionThreads"] = "1"
+	#device.replacePluginPropsOnServer(localPropsCopy)
 
 	#variable setup
 	MaxSensitivity = float(device.pluginProps["MaxSensitivity"])
@@ -184,7 +208,8 @@ def MotionCheck(device):
 
 	#Set images
 	img1 = Image.open(CameraDir + "/CurrentImage.jpg")
-	img2 = Image.open(CameraDir + "/00007.jpg")
+	sortedList = getSortedDir(CameraDir, "img", 7, 8)
+	img2 = Image.open(sortedList[0])
 	ImageDiff = rmsdiff(img1,img2)
 
 	#Average image difference
@@ -222,7 +247,8 @@ def MotionCheck(device):
 		font = ImageFont.truetype("Verdana.ttf", 8)
 		draw.text(((imgsize[0]-75), (imgsize[1]-15)),str(DiffFromAve),(255,255,255),font=font)
 		img1.save(CameraDir + "/CurrentImage.jpg")
-		img1.save(CameraDir + "/00001.jpg")
+		sortedList = getSortedDir(CameraDir, "img", 7, 8)
+		img1.save(sortedList[0])
 		
 	if int(FramesDiff) >= int(FramesDifferent):
 		device.updateStateOnServer("MotionDetected", value="true")
@@ -230,10 +256,6 @@ def MotionCheck(device):
 	
 	if int(MotionSeconds) >= int(MotionReset):
 		device.updateStateOnServer("MotionDetected", value="false")
-		
-	#Update Threadcount
-	localPropsCopy["MotionThreads"] = "0"
-	device.replacePluginPropsOnServer(localPropsCopy)
 	
 def GetMosaic(device):
 	##################Create tiled version of last 6 images
@@ -244,12 +266,14 @@ def GetMosaic(device):
 	CameraDir = CameraDir = MainDir + "/" + CameraName
 	MosaicImage = SnapshotDir + "/mosaic.jpg"
 	
-	img1 = Image.open(CameraDir + "/00003.jpg")
-	img2 = Image.open(CameraDir + "/00004.jpg")
-	img3 = Image.open(CameraDir + "/00005.jpg")
-	img4 = Image.open(CameraDir + "/00006.jpg")
-	img5 = Image.open(CameraDir + "/00007.jpg")
-	img6 = Image.open(CameraDir + "/00008.jpg")
+	sortedList = getSortedDir(CameraDir, "img", 2, 8)
+	
+	img1 = Image.open(sortedList[0])
+	img2 = Image.open(sortedList[1])
+	img3 = Image.open(sortedList[2])
+	img4 = Image.open(sortedList[3])
+	img5 = Image.open(sortedList[4])
+	img6 = Image.open(sortedList[5])
 	
 	#Create mosaic back ground
 	mosaic_size = img1.size
@@ -279,13 +303,16 @@ def MasterImage(sub, thread):
 	MasterCameraName = MasterCameraDevice.pluginProps["CameraName"]
 	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 	MasterCameraDir = MainDir + "/" + MasterCameraName
-	MasterRecording = PlayRecording + "/" + RecordingFrame
-	
-	CurrentImage = MasterCameraDir + "/CurrentImage.jpg"
-	RecordingImage = MainDir + "/" + MasterRecording
+	#MasterRecording = PlayRecording + "/" + RecordingFrame
+	MasterRecording = MainDir + "/" + PlayRecording
 	MasterImage1 = MainDir + "/Master1.jpg"
 	MasterImage2 = MainDir + "/Master2.jpg"
 	MasterImage3 = MainDir + "/Master3.jpg"
+	
+	CurrentImage = MasterCameraDir + "/CurrentImage.jpg"
+	
+	sortedList = getSortedDir(MasterRecording, "img", 0, 21)
+	RecordingImage = sortedList[int(RecordingFrame)]
 
 	if str(RecordingFlag) == "1":
 		FileFrom = RecordingImage
@@ -367,12 +394,14 @@ class Plugin(indigo.PluginBase):
 			localPropsCopy["MotionThreads"] = "0"
 			sdevice.replacePluginPropsOnServer(localPropsCopy)
 		
+		#Main dir test
 		MainDirTest = os.path.isdir(MainDir)
 		if MainDirTest is False:
 			indigo.server.log("Home image directory not found.")
 			os.makedirs(MainDir)
 			indigo.server.log("Created: " + MainDir)
 			
+		#Snapshot Test
 		SnapshotDirTest = os.path.isdir(SnapshotDir)
 		if SnapshotDirTest is False:
 			indigo.server.log("Snapshot image directory not found.")
@@ -383,15 +412,18 @@ class Plugin(indigo.PluginBase):
 		self.debugLog(u"shutdown called")
 
 	def validatePrefsConfigUi(self, valuesDict):
+	
 		MainDir = valuesDict["MainDirectory"]
 		ArchiveDir = MainDir + "/Archive"
 		
+		#Main Dir Test
 		MainDirTest = os.path.isdir(MainDir)		
 		if MainDirTest is False:
 			indigo.server.log("Home image directory not found.")
 			os.makedirs(MainDir)
 			indigo.server.log("Created: " + MainDir)
 
+		#archive dir test
 		ArchiveDirTest = os.path.isdir(ArchiveDir)			
 		if ArchiveDirTest is False:
 			indigo.server.log("Archive image directory not found.")
@@ -399,23 +431,24 @@ class Plugin(indigo.PluginBase):
 			indigo.server.log("Created: " + ArchiveDir)
 		return True
 
+	def didDeviceCommPropertyChange(self, origDev, newDev):
+		return False
+
 	def deviceStartComm(self, dev):
+		CameraName = dev.pluginProps["CameraName"]		
 		dev.stateListOrDisplayStateIdChanged()
 	
 		localPropsCopy = dev.pluginProps
-		CameraName = dev.pluginProps["CameraName"]
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 		IMDir = indigo.activePlugin.pluginPrefs["IMDirectory"]
 		CameraDir = MainDir + "/" + CameraName
 		NotActiveImage = CameraDir + "/NotActive.jpg"
-
+		
 		CameraDirTest = os.path.isdir(CameraDir)		
 		if CameraDirTest is False:
 			indigo.server.log("Camera image directory not found.")
 			os.makedirs(CameraDir)
 			indigo.server.log("Created: " + CameraDir)
-		if dev.states["CameraState"] != "Off":
-			dev.updateStateOnServer("CameraState", value="On")
 		
 		NotActiveImageTest = os.path.isfile(NotActiveImage)
 		if NotActiveImageTest is False:
@@ -428,8 +461,10 @@ class Plugin(indigo.PluginBase):
 			draw.text((center, 100),"Not Active",(255,255,255),font=font)
 			img.save(NotActiveImage)
 			indigo.server.log("Created Not Active Image")	
+	
+		if dev.states["CameraState"] != "Off":
+			dev.updateStateOnServer("CameraState", value="On")	
 		return True
-
 
 ################################################################################
 #
@@ -441,7 +476,7 @@ class Plugin(indigo.PluginBase):
 		try:
 			while True:
 				self.sleep(1)
-				
+
 				#Debug Mode
 				DebugMode = indigo.activePlugin.pluginPrefs["Debug"]
 				self.debug = DebugMode	
@@ -457,13 +492,14 @@ class Plugin(indigo.PluginBase):
 				RecordingCount = int(indigo.activePlugin.pluginPrefs["RecordingCount"])
 				
 				#set record loop frame
-				if RecordingCount <= 2:
-					RecordingCount = 20
+				if RecordingCount > 20:
+					RecordingCount = 0
 				else:
-					RecordingCount = RecordingCount - 1
+					RecordingCount = RecordingCount + 1
 					
-				RecordingFrame = "00000" + str(RecordingCount)
-				RecordingFrame = RecordingFrame[-5:] + ".jpg"
+				RecordingFrame = str(RecordingCount)
+				#"00000" + 
+				#RecordingFrame = RecordingFrame[-5:] + ".jpg"
 				indigo.activePlugin.pluginPrefs["RecordingFrame"] = RecordingFrame
 				indigo.activePlugin.pluginPrefs["RecordingCount"] = RecordingCount		
 										
@@ -508,17 +544,22 @@ class Plugin(indigo.PluginBase):
 				# Start device loop
 				#
 				################################################################################
+				
 				self.debugLog("     Starting Device Loop")					
 				for device in indigo.devices.iter("self"):
-					self.debugLog("     Starting Device Loop for:" + device.pluginProps["CameraName"])					
+					self.debugLog("     Starting Device Loop for:" + device.pluginProps["CameraName"])
+					CameraName = device.pluginProps["CameraName"]				
 					CameraState = device.states["CameraState"]
 					CameraTimeout = int(device.pluginProps["CameraTimeout"])
 					OfflineSeconds = int(device.states["OfflineSeconds"])
-					ImageThreadCount = int(device.pluginProps["ImageThreads"])
-					MotionThreadCount = int(device.pluginProps["MotionThreads"])
 					MotionThreadSeconds = int(device.pluginProps["MotionThreadSeconds"])
 					MotionOff = device.pluginProps["MotionOff"]
 					localPropsCopy = device.pluginProps
+					CameraDir = CameraDir = MainDir + "/" + CameraName
+					NoImage = CameraDir + "/NotActive.jpg"
+					CurrentImage = CameraDir + "/CurrentImage.jpg"
+					imagedate = time.strftime("%m.%d.%Y.%H.%M.%S")
+					NewImage = CameraDir + "/img_" + imagedate + ".jpg"	
 
 					self.debugLog("          Set State Timers")					
 					#Set State Timers
@@ -531,39 +572,40 @@ class Plugin(indigo.PluginBase):
 
 					self.debugLog("          Get Camera Image")						
 					if str(CameraState) != "Off":
+						
+						#Check for active thread
+						ImageThread = False
+						for t in threading.enumerate():
+							if str(t.getName()) == CameraName:
+								ImageThread = True
+						
 						#Get Images
-						if ImageThreadCount <= 0:
+						if not ImageThread:
 							device.updateStateOnServer("OfflineSeconds", value="0")
-							threadid = thread.start_new_thread( GetImage, (device,))
+							w = threading.Thread(name=CameraName, target=GetImage, args=(device,))
+							w.start()
 						else:
 							OfflineSeconds += 1
 							device.updateStateOnServer("OfflineSeconds", value=str(OfflineSeconds))
-							localPropsCopy["OfflineSeconds"] = str(OfflineSeconds)
-							device.replacePluginPropsOnServer(localPropsCopy)
 							if OfflineSeconds >= CameraTimeout:
-								localPropsCopy = device.pluginProps
-								localPropsCopy["ImageThreads"] = "0"
-								localPropsCopy["OfflineSeconds"] = "0"
-								device.replacePluginPropsOnServer(localPropsCopy)
+								device.updateStateOnServer("OfflineSeconds", value="0")
 								device.updateStateOnServer("CameraState", value="Unavailable")
+								shutil.copy(NoImage, CurrentImage)
+								shutil.copy(NoImage, NewImage)
+
+						MotionThread = False
+						for t in threading.enumerate():
+							if str(t.getName()) == CameraName + "-motion":
+								ImageThread = True
 
 						self.debugLog("          Check Motion")						
 						#Check Motion
 						if str(MotionOff) == "False":
-							if MotionThreadCount <= 0:
-								threadid = thread.start_new_thread( MotionCheck, (device,))
-							else:
-								MotionThreadSeconds += 1
-								localPropsCopy["MotionThreadSeconds"] = str(MotionThreadSeconds)
-								device.replacePluginPropsOnServer(localPropsCopy)
-								if MotionThreadSeconds >= 10:
-									localPropsCopy = device.pluginProps
-									localPropsCopy["MotionThreads"] = "0"
-									localPropsCopy["MotionThreadSeconds"] = "0"
-									device.replacePluginPropsOnServer(localPropsCopy)
-								
-		
+							if not MotionThread:
+								w = threading.Thread(name=CameraName + "-motion", target=MotionCheck, args=(device,))
+								w.start()
 		except self.StopThread:
+			indigo.server.log("thread stopped")
 			pass
 
 ################################################################################
@@ -606,17 +648,21 @@ class Plugin(indigo.PluginBase):
 		CameraName = CameraDevice.pluginProps["CameraName"]
 		indigo.server.log("Start Camera action called:" + CameraName)
 		CameraDevice.updateStateOnServer("CameraState", value="On")
+		CameraDevice.updateStateOnServer("OfflineSeconds", value="On")
 		
 	def ToggleCamera(self, pluginAction):
 		CameraDevice = indigo.devices[pluginAction.deviceId]
 		CameraName = CameraDevice.pluginProps["CameraName"]
 		CameraState = CameraDevice.states["CameraState"]
+		localPropsCopy = CameraDevice.pluginProps
+		
 		if CameraState == "On":
 			indigo.server.log("Stop Camera action called:" + CameraName)
 			CameraDevice.updateStateOnServer("CameraState", value="Off")
 		else:
 			indigo.server.log("Start Camera action called:" + CameraName)
 			CameraDevice.updateStateOnServer("CameraState", value="On")
+			CameraDevice.updateStateOnServer("OfflineSeconds", value="0")
 		
 	def MasterCamera(self, pluginAction):
 		indigo.activePlugin.pluginPrefs["MasterCamera"] = pluginAction.deviceId
@@ -634,18 +680,19 @@ class Plugin(indigo.PluginBase):
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 		SourceDir = MainDir + "/" + CameraName
 		RecordingDir = MainDir + "/" + CameraName + "/" + SavedDir
+		filecounter = 0
 		
 		os.makedirs(RecordingDir)
-		src_files = os.listdir(SourceDir)
+		src_files = getSortedDir(SourceDir, "img", 0, 21)
 		for file_name in src_files:
-			full_file_name = os.path.join(SourceDir, file_name)
-    			if (os.path.isfile(full_file_name)):
-    				try:
-        				shutil.copy(full_file_name, RecordingDir)
-        			except Exception as errtxt:
-						self.debugLog(str(errtxt))
+			filecounter = filecounter + 1
+			try:
+				shutil.copy(file_name, RecordingDir)
+			except Exception as errtxt:
+				self.debugLog(str(errtxt))
 		
-		CurrentImage = RecordingDir + "/00003.jpg"
+		sortedList = getSortedDir(SourceDir, "img", 3, 4)
+		CurrentImage = sortedList[0]
 		
 		for num in reversed(range(2, 10)):
 			LeadingNum = "0" + str(num)
