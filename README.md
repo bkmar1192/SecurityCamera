@@ -2,7 +2,7 @@
 Security Camera Plugin for Indigo
 By Bert Martin
 
-
+https://github.com/bkmar1192/SecurityCamera/tree/1.5.0
 
 This plugin is designed to be used for security cameras that provide
 access to a refreshing image file.  Although it was designed with Security 
