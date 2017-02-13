@@ -79,6 +79,8 @@ def GetSnapshot(device):
 	OrigImage = CameraDir + "/OrigImage.jpg"
 	CurrentImage = CameraDir + "/CurrentImage.jpg"
 	CameraAddress = device.pluginProps["CameraAddress"]
+	CameraUser = device.pluginProps["uname"]
+	CameraPwd = device.pluginProps["pwd"]
 	URLAddress = "http://" + CameraAddress
 	CameraTimeout = device.pluginProps["CameraTimeout"]
 	
@@ -92,19 +94,31 @@ def GetSnapshot(device):
 	Brightness = device.pluginProps["Brightness"]
 	Contrast = device.pluginProps["Contrast"]
 	Sharpness = device.pluginProps["Sharpness"]
-	OfflineSeconds = int(device.states["OfflineSeconds"])
 
-	ImageFound = True
-
+	passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
+	passman.add_password(None, "http://" + CameraAddress, CameraUser, CameraPwd)
+	auth_handler = urllib2.HTTPBasicAuthHandler(passman)
+	opener = urllib2.build_opener(auth_handler)
+	urllib2.install_opener(opener)
 	try:
-		f = urllib.urlopen(URLAddress)
-		with open(OrigImage, "wb") as imgFile:
-			imgFile.write(f.read())
-		device.updateStateOnServer("CameraState", value="On")
+		jpgfile = urllib2.urlopen("http://" + CameraAddress,timeout=10)
+		with open(OrigImage,'wb') as output:
+			output.write(jpgfile.read())
+			device.updateStateOnServer("CameraState", value="On")
+			ImageFound = True
 	except:
-		ImageFound = False
+		ImageFound = False		
+	
+  	#try:
+		#f = urllib.urlopen(URLAddress)
+		#with open(OrigImage, "wb") as imgFile:
+			#imgFile.write(f.read())
+		#device.updateStateOnServer("CameraState", value="On")
+	#except:
+		#ImageFound = False
 	
 	if ImageFound:
+		device.updateStateOnServer("OfflineSeconds", value="0")
 		if str(RawImage) == "False":
 			#get image
 			img = Image.open(OrigImage)
@@ -147,6 +161,7 @@ def GetSnapshot(device):
 		else:
 			final_img = Image.open(OrigImage)
 	else:
+		OfflineSeconds = int(device.states["OfflineSeconds"])
 		OfflineSeconds += 1
 		device.updateStateOnServer("OfflineSeconds", value=str(OfflineSeconds))
 		final_img = Image.open(CurrentImage)
@@ -155,9 +170,6 @@ def GetSnapshot(device):
 
 def GetImage(device):
 	##################Capture image for video
-
-	#Update Threadcount
-	localPropsCopy = device.pluginProps
 	
 	CameraName = device.pluginProps["CameraName"]
 	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
@@ -183,7 +195,7 @@ def GetImage(device):
 			os.remove(file)
 	except:
 		pass		
-		
+	
 	img.save(NewImage,optimize=True,quality=70)
 	shutil.copy(NewImage, TempImage)
 	os.rename(TempImage, CurrentImage)
@@ -432,10 +444,11 @@ class Plugin(indigo.PluginBase):
 		return True
 
 	def didDeviceCommPropertyChange(self, origDev, newDev):
-		return False
+			return False
 
 	def deviceStartComm(self, dev):
-		CameraName = dev.pluginProps["CameraName"]		
+		CameraName = dev.pluginProps["CameraName"]
+		url = dev.pluginProps["CameraAddress"]		
 		dev.stateListOrDisplayStateIdChanged()
 	
 		localPropsCopy = dev.pluginProps
@@ -444,12 +457,30 @@ class Plugin(indigo.PluginBase):
 		CameraDir = MainDir + "/" + CameraName
 		NotActiveImage = CameraDir + "/NotActive.jpg"
 		
-		CameraDirTest = os.path.isdir(CameraDir)		
+		userpwd = url.split("@",1)
+		if len(userpwd) > 1:
+			user = userpwd[0].split(":")
+		
+		props = dev.pluginProps
+		if not "OriginalAddress" in props:
+			props["CameraAddress"] = userpwd[1]
+			props["OriginalAddress"] = url
+			dev.replacePluginPropsOnServer(props)
+		
+		if not "uname" in props:
+			props["uname"] = user[0]
+			dev.replacePluginPropsOnServer(props)
+			
+		if not "pwd" in props:
+			props["pwd"] = user[1]
+			dev.replacePluginPropsOnServer(props)
+
+		CameraDirTest = os.path.isdir(CameraDir)
 		if CameraDirTest is False:
 			indigo.server.log("Camera image directory not found.")
 			os.makedirs(CameraDir)
 			indigo.server.log("Created: " + CameraDir)
-		
+			
 		NotActiveImageTest = os.path.isfile(NotActiveImage)
 		if NotActiveImageTest is False:
 			img = Image.new("RGB", (200, 200), "grey")
@@ -464,6 +495,7 @@ class Plugin(indigo.PluginBase):
 	
 		if dev.states["CameraState"] != "Off":
 			dev.updateStateOnServer("CameraState", value="On")	
+			
 		return True
 
 ################################################################################
@@ -551,7 +583,6 @@ class Plugin(indigo.PluginBase):
 					CameraName = device.pluginProps["CameraName"]				
 					CameraState = device.states["CameraState"]
 					CameraTimeout = int(device.pluginProps["CameraTimeout"])
-					OfflineSeconds = int(device.states["OfflineSeconds"])
 					MotionThreadSeconds = int(device.pluginProps["MotionThreadSeconds"])
 					MotionOff = device.pluginProps["MotionOff"]
 					localPropsCopy = device.pluginProps
@@ -578,20 +609,23 @@ class Plugin(indigo.PluginBase):
 						for t in threading.enumerate():
 							if str(t.getName()) == CameraName:
 								ImageThread = True
-						
+
 						#Get Images
 						if not ImageThread:
-							device.updateStateOnServer("OfflineSeconds", value="0")
 							w = threading.Thread(name=CameraName, target=GetImage, args=(device,))
 							w.start()
 						else:
+							OfflineSeconds = int(device.states["OfflineSeconds"])
 							OfflineSeconds += 1
 							device.updateStateOnServer("OfflineSeconds", value=str(OfflineSeconds))
-							if OfflineSeconds >= CameraTimeout:
-								device.updateStateOnServer("OfflineSeconds", value="0")
-								device.updateStateOnServer("CameraState", value="Unavailable")
-								shutil.copy(NoImage, CurrentImage)
-								shutil.copy(NoImage, NewImage)
+						
+						OfflineSeconds = int(device.states["OfflineSeconds"])	
+							
+						if OfflineSeconds >= CameraTimeout:
+							device.updateStateOnServer("OfflineSeconds", value="0")
+							device.updateStateOnServer("CameraState", value="Unavailable")
+							shutil.copy(NoImage, CurrentImage)
+							shutil.copy(NoImage, NewImage)
 
 						MotionThread = False
 						for t in threading.enumerate():
@@ -604,6 +638,7 @@ class Plugin(indigo.PluginBase):
 							if not MotionThread:
 								w = threading.Thread(name=CameraName + "-motion", target=MotionCheck, args=(device,))
 								w.start()
+								
 		except self.StopThread:
 			indigo.server.log("thread stopped")
 			pass

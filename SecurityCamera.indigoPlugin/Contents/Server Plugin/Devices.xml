@@ -12,6 +12,15 @@
 			<Field id="CameraAddress" type="textfield">
 				<Label>Address: http://</Label>
 			</Field>
+			<Field id="OriginalAddress" type="textfield" hidden="true">
+				<Label>Address: http://</Label>
+			</Field>
+			<Field id="uname" type="textfield">
+				<Label>User Name:</Label>
+			</Field>
+			<Field id="pwd" type="textfield">
+				<Label>Password:</Label>
+			</Field>
 			<Field id="CameraTimeout" type="textfield" defaultValue="30">
 				<Label>Camera Timeout (in seconds): </Label>
 			</Field>
