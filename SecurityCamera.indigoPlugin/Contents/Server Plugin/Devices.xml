@@ -4,30 +4,59 @@
 		<Name>Security Camera</Name>
 		<ConfigUI>
 			<Field id="autoLabel" type="label">
-				<Label>Camera Setup</Label>
+				<Label>Capture Setup:</Label>
 			</Field>
+		
+			<Field id="Label1" type="label" >
+				<Label>Specify either a remote url of a camera or a local file name.  Default camera URLs can be found here: http://www.ispyconnect.com/sources.aspx.
+				</Label>
+			</Field>
+			
+			<Field id="Label2" type="label" >
+				<Label>Urlib2 is the preferred method of url image capture.  However, if you have issues with urlib2 and your camera try urllib.  Urllib requires the password be integrated into the url.
+				</Label>
+			</Field>
+		
+			<Field type="menu" id="CaptureType" defaultValue="URL">
+			<Label>Type of capture (url or local file: </Label>
+				<List>
+					<Option value="http://">URL</Option>
+					<Option value="file:/">Local File</Option>
+				</List>
+			</Field>
+			
+			<Field type="menu" id="CaptureProtocol" defaultValue="urllib"  visibleBindingId="CaptureType" visibleBindingValue="http://">
+			<Label>Type of url capture (Python urllib or urllib2: </Label>
+				<List>
+					<Option value="urllib1">urllib</Option>
+					<Option value="urllib2">urllib2</Option>
+				</List>
+			</Field>	
+		
 			<Field id="CameraName" type="textfield">
 				<Label>Camera Name:</Label>
 			</Field>
 			<Field id="CameraAddress" type="textfield">
-				<Label>Address: http://</Label>
+				<Label>Address: (http/file)://</Label>
 			</Field>
 			<Field id="OriginalAddress" type="textfield" hidden="true">
 				<Label>Address: http://</Label>
 			</Field>
-			<Field id="uname" type="textfield">
+			
+			<Field id="uname" type="textfield" visibleBindingId="CaptureProtocol" visibleBindingValue="urllib2">
 				<Label>User Name:</Label>
 			</Field>
-			<Field id="pwd" type="textfield">
+			<Field id="pwd" type="textfield" visibleBindingId="CaptureProtocol" visibleBindingValue="urllib2">
 				<Label>Password:</Label>
 			</Field>
+			
 			<Field id="CameraTimeout" type="textfield" defaultValue="30">
 				<Label>Camera Timeout (in seconds): </Label>
 			</Field>
 			
 			<Field id="simpleSeparator1" type="separator" />
 			
-			<Field id="Label1" type="label" >
+			<Field id="Label3" type="label" >
 				<Label>If Raw Image is turned on, image manipulation for this device will be disabled.  Images will be displayed as they were captured from the camera.
 				</Label>
 			</Field>
@@ -56,6 +85,11 @@
 					<Option value="180">180</Option>
 					<Option value="270">270</Option>
 				</List>
+			</Field>
+		
+			<Field id="Aspect" type="checkbox" defaultValue="true" hidden="true">
+				<Label>Keep Aspect Ration:</Label>
+				<Description>True</Description>
 			</Field>
 		
 			<Field id="ImageWidth" type="textfield" defaultValue="384">
@@ -89,17 +123,52 @@
 			<Field id="ImageSettings" type="label" >
 				<Label>Image Settings: </Label>
 			</Field>
-		
-			<Field type="textfield" id="Brightness" defaultValue="1">
-				<Label>Brightness (0-2,1=orig): </Label>
-			</Field>
-			<Field type="textfield" id="Contrast" defaultValue="1">
-				<Label>Contrast (0-2,1=orig): </Label>
-			</Field>
-			<Field type="textfield" id="Sharpness" defaultValue="1">
-				<Label>Sharpness (0-2,1=orig): </Label>
+
+			<Field type="menu" id="Brightness" defaultValue="1">
+			<Label>Contrast: </Label>
+				<List>
+					<Option value=".25">Very Dark</Option>
+					<Option value=".75">Dark</Option>
+					<Option value="1">Original</Option>
+					<Option value="1.25">Bright</Option>					
+					<Option value="1.50">Very Bright</Option>
+				</List>
 			</Field>
 			
+			<Field type="menu" id="Contrast" defaultValue="1">
+			<Label>Contrast: </Label>
+				<List>
+					<Option value=".25">Very Low Contrast</Option>
+					<Option value=".75">Low Contrast</Option>
+					<Option value="1">Original</Option>
+					<Option value="1.75">High Contrast</Option>					
+					<Option value="2">Very High Contrast</Option>
+				</List>
+			</Field>
+			
+			<Field type="menu" id="Sharpness" defaultValue="1">
+			<Label>Sharpness: </Label>
+				<List>
+					<Option value="1">Original</Option>
+					<Option value="1.25">Low Sharp</Option>
+					<Option value="1.5">Medium Sharp</Option>
+					<Option value="1.75">High Sharp</Option>					
+					<Option value="2">Very High Sharp</Option>
+				</List>
+			</Field>
+			
+			
+			<Field type="menu" id="ImageQuality" defaultValue="75">
+			<Label>Image Quality: </Label>
+				<List>
+					<Option value="25">Low</Option>
+					<Option value="50">Medium</Option>
+					<Option value="75">High</Option>
+					<Option value="100">Original</Option>
+				</List>
+			</Field>
+
+		
 			<Field id="simpleSeparator4" type="separator" />
 			<Field id="MotionSettings" type="label" >
 				<Label>Motion Settings: </Label>

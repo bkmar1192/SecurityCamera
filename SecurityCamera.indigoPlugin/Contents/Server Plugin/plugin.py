@@ -81,7 +81,13 @@ def GetSnapshot(device):
 	CameraAddress = device.pluginProps["CameraAddress"]
 	CameraUser = device.pluginProps["uname"]
 	CameraPwd = device.pluginProps["pwd"]
-	URLAddress = "http://" + CameraAddress
+	
+	try:
+		CaptureType = device.pluginProps["CaptureType"]
+	except:
+		CaptureType = "http://"
+		
+	URLAddress = CaptureType + CameraAddress
 	CameraTimeout = device.pluginProps["CameraTimeout"]
 	
 	#setup image enhancement parameters
@@ -95,35 +101,71 @@ def GetSnapshot(device):
 	Contrast = device.pluginProps["Contrast"]
 	Sharpness = device.pluginProps["Sharpness"]
 
-	passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
-	passman.add_password(None, "http://" + CameraAddress, CameraUser, CameraPwd)
-	auth_handler = urllib2.HTTPBasicAuthHandler(passman)
-	opener = urllib2.build_opener(auth_handler)
-	urllib2.install_opener(opener)
 	try:
-		jpgfile = urllib2.urlopen("http://" + CameraAddress,timeout=10)
-		with open(OrigImage,'wb') as output:
-			output.write(jpgfile.read())
+		CaptureProtocol = device.pluginProps["CaptureProtocol"]
+	except:
+		CaptureProtocol = "urllib"
+
+	if CaptureProtocol == "urllib2":
+		passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
+		passman.add_password(None, CaptureType + CameraAddress, CameraUser, CameraPwd)
+		auth_handler = urllib2.HTTPBasicAuthHandler(passman)
+		opener = urllib2.build_opener(auth_handler)
+		urllib2.install_opener(opener)
+		try:
+			jpgfile = urllib2.urlopen(CaptureType + CameraAddress,timeout=10)
+			with open(OrigImage,'wb') as output:
+				output.write(jpgfile.read())
+				device.updateStateOnServer("CameraState", value="On")
+				ImageFound = True
+		except:
+			ImageFound = False		
+	else:
+  		try:
+			f = urllib.urlopen(URLAddress)
+			with open(OrigImage, "wb") as imgFile:
+				imgFile.write(f.read())
 			device.updateStateOnServer("CameraState", value="On")
 			ImageFound = True
-	except:
-		ImageFound = False		
-	
-  	#try:
-		#f = urllib.urlopen(URLAddress)
-		#with open(OrigImage, "wb") as imgFile:
-			#imgFile.write(f.read())
-		#device.updateStateOnServer("CameraState", value="On")
-	#except:
-		#ImageFound = False
+		except:
+			ImageFound = False
 	
 	if ImageFound:
 		device.updateStateOnServer("OfflineSeconds", value="0")
 		if str(RawImage) == "False":
 			#get image
 			img = Image.open(OrigImage)
+			
 			#Resize image
-			img = img.resize((int(ImageWidth), int(ImageHeight)-15))
+			try:
+				Aspect = device.pluginProps["Aspect"]
+			except:
+				Aspect = "true"
+			
+			old_size = img.size
+			new_size = (int(ImageWidth), int(ImageHeight))
+			#new_size = (int(ImageWidth), int(ImageHeight)-15)
+			new_img = Image.new("RGB", new_size, "black")
+
+			per_dem = (float(new_size[0])/float(old_size[0]), float(new_size[1])/float(old_size[1]))
+
+			if (per_dem[0] > per_dem[1]):
+				percent = per_dem[1]
+			else:
+				percent = per_dem[0]
+
+			recalc_size = (int(old_size[0]*percent),int(old_size[1]*percent))
+			img = img.resize(recalc_size)
+			final_size  = img.size 
+			
+			aBorderWidth = int((new_size[0] - final_size[0])/2)
+			aBorderHeight = int((new_size[1] - final_size[1])/2)
+			new_img.paste(img, (aBorderWidth,aBorderHeight))
+			
+			img = new_img
+			new_image=""
+			
+			#img = img.resize((int(ImageWidth), int(ImageHeight)-15))
 			#rotate image
 			img = img.rotate(int(CameraRotation))
 			#brighten image
@@ -136,24 +178,28 @@ def GetSnapshot(device):
 			enhancer = ImageEnhance.Sharpness(img)
 			img = enhancer.enhance(float(Sharpness))
 
-			#Create label border
+			#Create label border (based on image % size)
 			old_size = img.size
-			new_size = (old_size[0], old_size[1]+15)
+			labelBorder = int(old_size[1]*.06)
+
+			new_size = (old_size[0], old_size[1]+labelBorder)					
 			new_img = Image.new("RGB", new_size, "grey")
-			#Add label text 
+			new_size2 = new_img.size
+			
+			#Add label text
+			textSize = int(labelBorder/2)
 			draw = ImageDraw.Draw(new_img)
-			font = ImageFont.truetype("Verdana.ttf", 8)
+			font = ImageFont.truetype("Verdana.ttf", textSize)
 			draw.text((5, old_size[1]+3),labeltext,(255,255,255),font=font)
 			#Add image to label
 			new_img.paste(img, (0,0))	
 		
-			if int(BorderWidth) > 0:
+			if int(BorderWidth) > 0:		
 				old_size = new_img.size
 				#Create border
 				borderedge = int(BorderWidth)*2
 				new_size = (old_size[0]+borderedge, old_size[1]+borderedge)
 				final_img = Image.new("RGB", new_size, BorderColor) 
-				#Add image to border
 				final_img.paste(new_img, (int(BorderWidth),int(BorderWidth)))
 			else:
 			#Save image without border
@@ -165,6 +211,7 @@ def GetSnapshot(device):
 		OfflineSeconds += 1
 		device.updateStateOnServer("OfflineSeconds", value=str(OfflineSeconds))
 		final_img = Image.open(CurrentImage)
+
 
 	return final_img
 
@@ -179,6 +226,7 @@ def GetImage(device):
 	
 	imagedate = time.strftime("%m.%d.%Y.%H.%M.%S")
 	NewImage = CameraDir + "/img_" + imagedate + ".jpg"	
+	
 	img = GetSnapshot(device)
 
 	imagecount = []
@@ -196,9 +244,15 @@ def GetImage(device):
 	except:
 		pass		
 	
-	img.save(NewImage,optimize=True,quality=70)
+	try:
+		ImageQuality = int(device.pluginProps["ImageQuality"])
+	except:
+		ImageQuality = 75
+	
+	img.save(NewImage,optimize=True,quality=ImageQuality)
 	shutil.copy(NewImage, TempImage)
 	os.rename(TempImage, CurrentImage)
+
 
 def MotionCheck(device):
 	##################Check for motion
@@ -456,24 +510,6 @@ class Plugin(indigo.PluginBase):
 		IMDir = indigo.activePlugin.pluginPrefs["IMDirectory"]
 		CameraDir = MainDir + "/" + CameraName
 		NotActiveImage = CameraDir + "/NotActive.jpg"
-		
-		userpwd = url.split("@",1)
-		if len(userpwd) > 1:
-			user = userpwd[0].split(":")
-		
-		props = dev.pluginProps
-		if not "OriginalAddress" in props:
-			props["CameraAddress"] = userpwd[1]
-			props["OriginalAddress"] = url
-			dev.replacePluginPropsOnServer(props)
-		
-		if not "uname" in props:
-			props["uname"] = user[0]
-			dev.replacePluginPropsOnServer(props)
-			
-		if not "pwd" in props:
-			props["pwd"] = user[1]
-			dev.replacePluginPropsOnServer(props)
 
 		CameraDirTest = os.path.isdir(CameraDir)
 		if CameraDirTest is False:
@@ -495,6 +531,8 @@ class Plugin(indigo.PluginBase):
 	
 		if dev.states["CameraState"] != "Off":
 			dev.updateStateOnServer("CameraState", value="On")	
+			
+		dev.stateListOrDisplayStateIdChanged()
 			
 		return True
 
