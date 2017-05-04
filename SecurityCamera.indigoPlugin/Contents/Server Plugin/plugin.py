@@ -377,6 +377,7 @@ def MasterImage(sub, thread):
 	
 	CurrentImage = MasterCameraDir + "/CurrentImage.jpg"
 	
+	indigo.server.log(MasterRecording)
 	sortedList = getSortedDir(MasterRecording, "img", 0, 21)
 	RecordingImage = sortedList[int(RecordingFrame)]
 

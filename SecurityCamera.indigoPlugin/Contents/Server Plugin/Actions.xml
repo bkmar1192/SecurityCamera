@@ -4,10 +4,12 @@
 		<Name>Stop Camera</Name>
 		<CallbackMethod>StopCamera</CallbackMethod>
 	</Action>
+	
 	<Action id="StartCamera" deviceFilter="self">
 		<Name>Start Camera</Name>
 		<CallbackMethod>StartCamera</CallbackMethod>
 	</Action>
+	
 	<Action id="ToggleCamera" deviceFilter="self">
 		<Name>Toggle Camera Activation</Name>
 		<CallbackMethod>ToggleCamera</CallbackMethod>
@@ -52,6 +54,7 @@
 			</Field>
 		</ConfigUI>
 		<CallbackMethod>PlayRecording</CallbackMethod>
+	</Action>
 	<Action id="CameraCommand">
 		<Name>Camera Command</Name>
 		<ConfigUI>
@@ -64,8 +67,7 @@
 		</ConfigUI>
 		<CallbackMethod>CameraCommand</CallbackMethod>
 	</Action>
-	</Action>
-		<Action id="DeleteRecording" deviceFilter="self">
+	<Action id="DeleteRecording" deviceFilter="self">
 		<Name>Delete Old Files</Name>
 		<ConfigUI>
 			<Field id="DeleteMonths" type="textfield">
