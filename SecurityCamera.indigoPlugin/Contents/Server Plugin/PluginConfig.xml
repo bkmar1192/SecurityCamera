@@ -12,6 +12,7 @@
 	<Field id="IMDirectory" type="textfield" defaultValue="/opt/local/bin/" hidden="true">
 		<Label>ImageMagick Directory:</Label>
 	</Field>
+	
 	<Field id="CarouselCount" type="textfield" defaultValue="0" hidden="true">
 		<Label>Carousel Count:</Label>
 	</Field>
@@ -21,11 +22,22 @@
 	<Field id="CarouselOn" type="textfield" defaultValue="true" hidden="true">
 		<Label>Carousel On:</Label>
 	</Field>
+	<Field id="CarouselCameraPause" type="textfield" defaultValue="true" hidden="true">
+		<Label>Carousel Camera Pause:</Label>
+	</Field>
+	
 	<Field id="MasterCamera" type="textfield" defaultValue="0" hidden="true">
 		<Label>Master Camera:</Label>
 	</Field>
+	<Field id="LowRes" type="textfield" defaultValue="0" hidden="true">
+		<Label>Low Res:</Label>
+	</Field>
+	
 	<Field id="SavedVideo" type="textfield" defaultValue="0" hidden="true">
 		<Label>Saved Video:</Label>
+	</Field>
+	<Field id="RecordingPause" type="textfield" defaultValue="False" hidden="true">
+		<Label>Recording Paused:</Label>
 	</Field>
 	<Field id="PlayRecording" type="textfield" defaultValue="0" hidden="true">
 		<Label>Play Recording:</Label>
@@ -39,10 +51,12 @@
 	<Field id="RecordingFlag" type="textfield" defaultValue="0" hidden="true">
 		<Label>Recording Flag:</Label>
 	</Field>
+	
 	<Field id="Debug" type="checkbox" defaultValue="false">
 		<Label>Debug Mode:</Label>
 		<Description>Debug Mode On (Use Carefully)</Description>
 	</Field>
+	
 	<Field id="MasterThreads" type="textfield" defaultValue="0" hidden="true">
 		<Label>Master Thread Count:</Label>
 		<Description>Number of Master active threads - for debugging</Description>

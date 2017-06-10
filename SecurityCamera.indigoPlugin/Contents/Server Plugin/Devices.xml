@@ -317,6 +317,61 @@
 				<TriggerLabel>Recording 10</TriggerLabel>
 				<ControlPageLabel>Camera Recording 10</ControlPageLabel>
 			</State>
+			
+			<State id="NewRecording01">
+				<ValueType>String</ValueType>
+				<TriggerLabel>New Recording 01</TriggerLabel>
+				<ControlPageLabel>New Recording 01</ControlPageLabel>
+			</State>
+			<State id="NewRecording02">
+				<ValueType>String</ValueType>
+				<TriggerLabel>New Recording 02</TriggerLabel>
+				<ControlPageLabel>New Recording 02</ControlPageLabel>
+			</State>
+			<State id="NewRecording03">
+				<ValueType>String</ValueType>
+				<TriggerLabel>New Recording 03</TriggerLabel>
+				<ControlPageLabel>New Recording 03</ControlPageLabel>
+			</State>
+			<State id="NewRecording04">
+				<ValueType>String</ValueType>
+				<TriggerLabel>New Recording 04</TriggerLabel>
+				<ControlPageLabel>New Recording 04</ControlPageLabel>
+			</State>
+			<State id="NewRecording05">
+				<ValueType>String</ValueType>
+				<TriggerLabel>New Recording 05</TriggerLabel>
+				<ControlPageLabel>New Recording 05</ControlPageLabel>
+			</State>
+			<State id="NewRecording06">
+				<ValueType>String</ValueType>
+				<TriggerLabel>New Recording 06</TriggerLabel>
+				<ControlPageLabel>New Recording 06</ControlPageLabel>
+			</State>
+			<State id="NewRecording07">
+				<ValueType>String</ValueType>
+				<TriggerLabel>New Recording 07</TriggerLabel>
+				<ControlPageLabel>New Recording 07</ControlPageLabel>
+			</State>
+			<State id="NewRecording08">
+				<ValueType>String</ValueType>
+				<TriggerLabel>New Recording 08</TriggerLabel>
+				<ControlPageLabel>New Recording 08</ControlPageLabel>
+			</State>
+			<State id="NewRecording09">
+				<ValueType>String</ValueType>
+				<TriggerLabel>New Recording 09</TriggerLabel>
+				<ControlPageLabel>New Recording 09</ControlPageLabel>
+			</State>
+			<State id="NewRecording10">
+				<ValueType>String</ValueType>
+				<TriggerLabel>New Recording 10</TriggerLabel>
+				<ControlPageLabel>New Recording 10</ControlPageLabel>
+			</State>
+			
+			
+			
+			
 		</States>
 	</Device>
 </Devices>

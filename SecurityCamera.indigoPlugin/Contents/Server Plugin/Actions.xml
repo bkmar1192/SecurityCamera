@@ -4,34 +4,64 @@
 		<Name>Stop Camera</Name>
 		<CallbackMethod>StopCamera</CallbackMethod>
 	</Action>
-	
 	<Action id="StartCamera" deviceFilter="self">
 		<Name>Start Camera</Name>
 		<CallbackMethod>StartCamera</CallbackMethod>
 	</Action>
-	
 	<Action id="ToggleCamera" deviceFilter="self">
-		<Name>Toggle Camera Activation</Name>
+		<Name>Toggle Camera</Name>
 		<CallbackMethod>ToggleCamera</CallbackMethod>
 	</Action>
 	<Action id="MasterCamera" deviceFilter="self">
-		<Name>Master Camera</Name>
+		<Name>Set Master Camera</Name>
 		<CallbackMethod>MasterCamera</CallbackMethod>
 	</Action>
+	<Action id="ToggleResolution" deviceFilter="self">
+		<Name>Toggle Resolution</Name>
+		<CallbackMethod>ToggleResolution</CallbackMethod>
+	</Action>
+	
+	<Action id="actionSeperatorZ" />
+	
 	<Action id="ToggleCarousel" deviceFilter="self">
 		<Name>Toggle Carousel</Name>
 		<CallbackMethod>ToggleCarousel</CallbackMethod>
 	</Action>
+	<Action id="ToggleCarouselCamera" deviceFilter="self">
+		<Name>Toggle Carousel Loop</Name>
+		<CallbackMethod>ToggleCarouselCamera</CallbackMethod>
+	</Action>
+	<Action id="NextCarouselCamera" deviceFilter="self">
+		<Name>Next Carousel Camera</Name>
+		<CallbackMethod>NextCarouselCamera</CallbackMethod>
+	</Action>
+	
+	<Action id="actionSeperator0" />
+	
 	<Action id="Snapshot" deviceFilter="self">
-		<Name>Take Snapshot</Name>
+		<Name>Snapshot</Name>
+		<ConfigUI>
+			<Field id="Quality" type="menu">
+				<Label>Quality:</Label>
+				<List>
+					<Option value="100">Original</Option>
+					<Option value="75">High</Option>
+					<Option value="50">Medium</Option>
+					<Option value="10">Low</Option>
+				</List>
+			</Field>
+		</ConfigUI>
 		<CallbackMethod>Snapshot</CallbackMethod>
 	</Action>
 	<Action id="Mosaic" deviceFilter="self">
-		<Name>Take Mosaic</Name>
+		<Name>Mosaic</Name>
 		<CallbackMethod>Mosaic</CallbackMethod>
 	</Action>
+	
+	<Action id="actionSeperator1" />
+	
 	<Action id="RecordCamera" deviceFilter="self">
-		<Name>Record Camera</Name>
+		<Name>Record</Name>
 		<CallbackMethod>RecordCamera</CallbackMethod>
 	</Action>
 	<Action id="PlayRecording" deviceFilter="self">
@@ -55,6 +85,22 @@
 		</ConfigUI>
 		<CallbackMethod>PlayRecording</CallbackMethod>
 	</Action>
+	
+	<Action id="Pause">
+		<Name>Pause/Play</Name>
+		<CallbackMethod>PauseRecording</CallbackMethod>
+	</Action>
+	<Action id="FrameBackward">
+		<Name>Frame Backward</Name>
+		<CallbackMethod>FrameBackward</CallbackMethod>
+	</Action>
+	<Action id="FrameForward">
+		<Name>Frame Forward</Name>
+		<CallbackMethod>FrameForward</CallbackMethod>
+	</Action>
+	
+	<Action id="actionSeperator2" />
+	
 	<Action id="CameraCommand">
 		<Name>Camera Command</Name>
 		<ConfigUI>
