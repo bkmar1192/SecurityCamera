@@ -155,7 +155,6 @@ def GetSnapshot(device):
 			
 			old_size = img.size
 			new_size = (int(ImageWidth), int(ImageHeight))
-			#new_size = (int(ImageWidth), int(ImageHeight)-15)
 			new_img = Image.new("RGB", new_size, "black")
 
 			per_dem = (float(new_size[0])/float(old_size[0]), float(new_size[1])/float(old_size[1]))
@@ -176,7 +175,6 @@ def GetSnapshot(device):
 			img = new_img
 			new_image=""
 			
-			#img = img.resize((int(ImageWidth), int(ImageHeight)-15))
 			#rotate image
 			img = img.rotate(int(CameraRotation))
 			#brighten image
@@ -188,22 +186,9 @@ def GetSnapshot(device):
 			#sharpen image
 			enhancer = ImageEnhance.Sharpness(img)
 			img = enhancer.enhance(float(Sharpness))
-
-			#Create label border (based on image % size)
-			old_size = img.size
-			labelBorder = int(old_size[1]*.06)
-
-			new_size = (old_size[0], old_size[1]+labelBorder)					
-			new_img = Image.new("RGB", new_size, "grey")
-			new_size2 = new_img.size
-			
-			#Add label text
-			textSize = int(labelBorder/2)
-			draw = ImageDraw.Draw(new_img)
-			font = ImageFont.truetype("Verdana.ttf", textSize)
-			draw.text((5, old_size[1]+3),labeltext,(255,255,255),font=font)
-			#Add image to label
-			new_img.paste(img, (0,0))	
+		
+			#Add date time label
+			new_img = AddLabel(img, labeltext)
 		
 			if int(BorderWidth) > 0:		
 				old_size = new_img.size
@@ -223,18 +208,44 @@ def GetSnapshot(device):
 		device.updateStateOnServer("OfflineSeconds", value=str(OfflineSeconds))
 		final_img = Image.open(CurrentImage)
 
-
 	return final_img
+
+def AddLabel(img, labeltext):
+	## add text to both HR and LR images
+			
+	#Create label border (based on image % size)
+	old_size = img.size
+	labelBorder = int(old_size[1]*.06)
+
+	new_size = (old_size[0], old_size[1]+labelBorder)					
+	new_img = Image.new("RGB", new_size, "grey")
+	new_size2 = new_img.size
+			
+	#Add label text
+	textSize = int(labelBorder/2)
+	draw = ImageDraw.Draw(new_img)
+	font = ImageFont.truetype("Verdana.ttf", textSize)
+	draw.text((5, old_size[1]+3),labeltext,(255,255,255),font=font)
+	#Add image to label
+	new_img.paste(img, (0,0))
+	
+	return new_img
+				
+	##To here
 
 def GetImage(device):
 	##################Capture image for video
 	
 	CameraName = device.pluginProps["CameraName"]
+	nowtime = datetime.datetime.now()
+	displaytime = str(nowtime).split(".")[0]
+	labeltext = CameraName + " : " + displaytime
 	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 	CameraDir = MainDir + "/" + CameraName
 	TempImage = CameraDir + "/TempImage.jpg"
 	CurrentImage = CameraDir + "/CurrentImage.jpg"
 	CurrentImageLR = CameraDir + "/CurrentImageLR.jpg"
+
 	
 	imagedate = time.strftime("%m.%d.%Y.%H.%M.%S")
 	NewImage = CameraDir + "/img_" + imagedate + ".jpg"	
@@ -261,17 +272,24 @@ def GetImage(device):
 	except:
 		ImageQuality = 75
 	
+	#save high res image
+	#Add date time label
+	#indigo.server.log("Mark 1")
+	#img = AddLabel(img, labeltext)
 	img.save(NewImage,optimize=True,quality=ImageQuality)
 	
-	basewidth = 500
+	#Create low res image
+	basewidth = 250
 	wpercent = (basewidth/float(img.size[0]))
 	hsize = int((float(img.size[1])*float(wpercent)))
 	simg = img.resize((basewidth,hsize))
-
+	#Add date time label
+	#indigo.server.log("mark 2")
+	#img = AddLabel(simg, labeltext)
 	simg.save(CurrentImageLR,optimize=True,quality=15)
+	
 	shutil.copy(NewImage, TempImage)
 	os.rename(TempImage, CurrentImage)
-
 
 def MotionCheck(device):
 	##################Check for motion
@@ -350,6 +368,7 @@ def GetMosaic(device):
 	CameraName = device.pluginProps["CameraName"]
 	CameraDir = CameraDir = MainDir + "/" + CameraName
 	MosaicImage = SnapshotDir + "/mosaic.jpg"
+	MosaicImageLR = SnapshotDir + "/mosaicLR.jpg"
 	
 	sortedList = getSortedDir(CameraDir, "img", 2, 8)
 	
@@ -374,7 +393,8 @@ def GetMosaic(device):
 	mosaic_img.paste(img6, (mosaic_size[0]/2,(mosaic_size[1]/3)*2))
 
 	#save mosaic
-	mosaic_img.save(MosaicImage)
+	mosaic_img.save(MosaicImage,optimize=True,quality=75)
+	mosaic_img.save(MosaicImageLR,optimize=True,quality=25)
 
 
 def MasterImage(sub, thread):
@@ -388,7 +408,6 @@ def MasterImage(sub, thread):
 	MasterCameraName = MasterCameraDevice.pluginProps["CameraName"]
 	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 	MasterCameraDir = MainDir + "/" + MasterCameraName
-	#MasterRecording = PlayRecording + "/" + RecordingFrame
 	MasterRecording = MainDir + "/" + PlayRecording
 	MasterImage1 = MainDir + "/Master1.jpg"
 	MasterImage2 = MainDir + "/Master2.jpg"
@@ -472,6 +491,13 @@ class Plugin(indigo.PluginBase):
 		indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
 		self.updater = GitHubPluginUpdater(self)
 
+		if "LowRes" not in pluginPrefs:
+			pluginPrefs["LowRes"] = "false"
+		if "RecordingPause" not in pluginPrefs:
+			pluginPrefs["RecordingPause"] = "true"
+		if "CarouselCameraPause" not in pluginPrefs:
+			pluginPrefs["CarouselCameraPause"] = "false"		
+
 	def __del__(self):
 		indigo.PluginBase.__del__(self)
 
@@ -486,6 +512,7 @@ class Plugin(indigo.PluginBase):
 			indigo.server.log("Running the current version of Security Camera")
 		else:
 			indigo.server.log("The current version of Security Camera is " + str(CurrentVersion) + " and the running version " + str(ActiveVersion) + ".")
+			indigo.server.log("See https://github.com/bkmar1192/SecurityCamera/blob/master/Security%20Camera%20Manual.pdf for change details."
 		
 		SnapshotDir = indigo.activePlugin.pluginPrefs["SnapshotDirectory"]
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
@@ -617,10 +644,14 @@ class Plugin(indigo.PluginBase):
 				indigo.activePlugin.pluginPrefs["RecordingFrame"] = RecordingFrame
 				indigo.activePlugin.pluginPrefs["RecordingCount"] = RecordingCount		
 										
-				#Create camera device list
+				#Create camera device list alist = all actlist = active
 				alist = []
+				actlist = []
 				for sdevice in indigo.devices.iter("self"):
 					alist.append(sdevice.pluginProps["CameraName"] )
+					CameraState = sdevice.states["CameraState"]
+					if CameraState == "On":
+						actlist.append(sdevice.pluginProps["CameraName"] )
 				
 				################################################################################
 				#
@@ -629,14 +660,16 @@ class Plugin(indigo.PluginBase):
 				################################################################################
 				self.debugLog("     Starting Carousel")
 				CarouselCount = int(indigo.activePlugin.pluginPrefs["CarouselCount"])
-				MaxCarouselCount = len(alist)
+				MaxCarouselCount = len(actlist)
 				
 				#check to see if carousel camera is paused  if it is skip over this
 				if CarouselCount >= MaxCarouselCount-1:
 					indigo.activePlugin.pluginPrefs["CarouselCount"] = 0
 				
+				##Loop through and find offline carousel cameras
+				
 				try:
-					CarouselCamera = alist[CarouselCount]
+					CarouselCamera = actlist[CarouselCount]
 					RunCarousel(CarouselCamera)
 				except:
 					self.debugLog("     Unable to run Carousel")

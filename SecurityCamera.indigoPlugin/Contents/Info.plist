@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>PluginVersion</key>
-	<string>1.6</string>
+	<string>1.6.1</string>
 	<key>ServerApiVersion</key>
 	<string>2.0</string>
 	<key>IwsApiVersion</key>
@@ -13,12 +13,12 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.perceptiveautomation.indigoplugin.securitycamera</string>
 	<key>CFBundleVersion</key>
-	<string>1.6</string>
+	<string>1.6.1</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>http://forums.indigodomo.com/viewforum.php?f=241</string>
+			<string>http://forums.indigodomo.com/viewforum.php?f=239</string>
 		</dict>
 	</array>
 </dict>
