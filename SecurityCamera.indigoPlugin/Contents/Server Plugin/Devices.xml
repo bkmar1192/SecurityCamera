@@ -3,72 +3,43 @@
 	<Device type="custom" id="SecurityCamera">
 		<Name>Security Camera</Name>
 		<ConfigUI>
+			<Field id="CameraName" type="textfield">
+				<Label>Camera Name:</Label>
+			</Field>
+			
+			<Field id="simpleSeparator1" type="separator" />
+			
 			<Field id="autoLabel" type="label">
 				<Label>Capture Setup:</Label>
 			</Field>
-		
 			<Field id="Label1" type="label" >
 				<Label>Specify either a remote url of a camera or a local file name.  Default camera URLs can be found here: http://www.ispyconnect.com/sources.aspx.
 				</Label>
 			</Field>
-			
-			<Field id="Label2" type="label" >
-				<Label>Urlib2 is the preferred method of url image capture.  However, if you have issues with urlib2 and your camera try urllib.  Urllib requires the password be integrated into the url.
-				</Label>
-			</Field>
-		
 			<Field type="menu" id="CaptureType" defaultValue="URL">
-			<Label>Type of capture (url or local file: </Label>
+			<Label>Type of capture: </Label>
 				<List>
 					<Option value="http://">URL</Option>
 					<Option value="file:/">Local File</Option>
 				</List>
-			</Field>
-			
-			<Field type="menu" id="CaptureProtocol" defaultValue="urllib"  visibleBindingId="CaptureType" visibleBindingValue="http://">
-			<Label>Type of url capture (Python urllib or urllib2: </Label>
-				<List>
-					<Option value="urllib1">urllib</Option>
-					<Option value="urllib2">urllib2</Option>
-				</List>
 			</Field>	
 		
-			<Field id="CameraName" type="textfield">
-				<Label>Camera Name:</Label>
-			</Field>
 			<Field id="CameraAddress" type="textfield">
 				<Label>Address: (http/file)://</Label>
 			</Field>
-			<Field id="OriginalAddress" type="textfield" hidden="true">
-				<Label>Address: http://</Label>
+			<Field id="Digest" type="checkbox" defaultValue="false">
+				<Label>Digest Authentication:</Label>
+				<Description>Use digest authentication</Description>
 			</Field>
-			
-			<Field id="uname" type="textfield" visibleBindingId="CaptureProtocol" visibleBindingValue="urllib2">
+			<Field id="uname" type="textfield">
 				<Label>User Name:</Label>
 			</Field>
-			<Field id="pwd" type="textfield" visibleBindingId="CaptureProtocol" visibleBindingValue="urllib2">
+			<Field id="pwd" type="textfield">
 				<Label>Password:</Label>
 			</Field>
 			
 			<Field id="CameraTimeout" type="textfield" defaultValue="30">
 				<Label>Camera Timeout (in seconds): </Label>
-			</Field>
-			
-			<Field id="simpleSeparator1" type="separator" />
-			
-			<Field id="Label3" type="label" >
-				<Label>If Raw Image is turned on, image manipulation for this device will be disabled.  Images will be displayed as they were captured from the camera.
-				</Label>
-			</Field>
-			
-			<Field id="Raw" type="checkbox" defaultValue="false">
-				<Label>Raw Image:</Label>
-				<Description>Raw Image Mode On</Description>
-			</Field>
-			
-			<Field id="MotionOff" type="checkbox" defaultValue="false">
-				<Label>Motion Off:</Label>
-				<Description>Motion Detection Off</Description>
 			</Field>
 			
 			<Field id="simpleSeparator2" type="separator" />
@@ -157,76 +128,99 @@
 				</List>
 			</Field>
 			
-			
-			<Field type="menu" id="ImageQuality" defaultValue="75">
+			<Field type="menu" id="ImageQuality" defaultValue="70">
 			<Label>Image Quality: </Label>
 				<List>
-					<Option value="25">Low</Option>
+					<Option value="30">Low</Option>
 					<Option value="50">Medium</Option>
-					<Option value="75">High</Option>
-					<Option value="100">Original</Option>
+					<Option value="70">High</Option>
+					<Option value="90">Original</Option>
 				</List>
 			</Field>
 
-		
 			<Field id="simpleSeparator4" type="separator" />
+
 			<Field id="MotionSettings" type="label" >
 				<Label>Motion Settings: </Label>
 			</Field>
-			
+			<Field id="Motion" type="checkbox" defaultValue="false">
+				<Label>Motion:</Label>
+			</Field>
 			<Field type="checkbox" id="CheckMotion" defaultValue="false">
 				<Label>Check Motion Sensitivity: </Label>
 			</Field>
-			<Field id="MinSensitivity" type="textfield" defaultValue=".02">
-				<Label>Minimum Sensitivity :</Label>
-			</Field>
-			<Field id="MaxSensitivity" type="textfield" defaultValue=".15">
-				<Label>Maximum Sensitivity :</Label>
-			</Field>
-			<Field id="FramesDifferent" type="textfield" defaultValue="5">
-				<Label>Different Frames in a Row:</Label>
-			</Field>
-			<Field type="textfield" id="MotionReset" defaultValue="30">
-				<Label>Seconds Until Reset: </Label>
-			</Field>
-			
-			<Field type="checkbox" id="AdvancedMotion" defaultValue="false" hidden="true">
-				<Label>Advanced Motion: </Label>
-			</Field>
-			<Field type="list" id="listSample" visibleBindingId="AdvancedMotion" visibleBindingValue="true" defaultValue="Zone1, Zone2, Zone3, Zone4, Zone5, Zone6, Zone7, Zone8, Zone9">
-			<Label>Active Zones:</Label>
-				<List>
-					<Option value="Zone1">Zone 1</Option>
-					<Option value="Zone2">Zone 2</Option>
-					<Option value="Zone3">Zone 3</Option>
-					<Option value="Zone4">Zone 4</Option>
-					<Option value="Zone5">Zone 5</Option>
-					<Option value="Zone6">Zone 6</Option>
-					<Option value="Zone7">Zone 7</Option>
-					<Option value="Zone8">Zone 8</Option>
-					<Option value="Zone9">Zone 9</Option>
-				</List>
-			</Field>
-			
-			
-			<Field id="NoImage" type="textfield" hidden="true">
-				<Label>No Image Count:</Label>
-			</Field>
-			<Field id="Reachable" type="textfield" defaultValue="False" hidden="true">
-				<Label>Not Reachable:</Label>
-			</Field>
-			<Field id="ImageThreads" type="textfield" defaultValue="0" hidden="true">
-				<Label>Image Threads:</Label>
-			</Field>
-			<Field id="MotionThreads" type="textfield" defaultValue="0" hidden="true">
-				<Label>Motion Threads:</Label>
-			</Field>
-			<Field id="MotionThreadSeconds" type="textfield" defaultValue="0" hidden="true">
-				<Label>Seconds since last motion thread run:</Label>
+			<Field id="MotionDelay" type="textfield" defaultValue="300">
+				<Label>Motion Delay Seconds:</Label>
 			</Field>
 		</ConfigUI>
+		
 		<UiDisplayStateId>CameraState</UiDisplayStateId>
 		<States>
+			<State id="Motion">
+				<ValueType>Boolean</ValueType>
+				<TriggerLabel>Motion On</TriggerLabel>
+				<ControlPageLabel>Motion On</ControlPageLabel>
+			</State>
+			<State id="MotionDetected">
+				<ValueType>Boolean</ValueType>
+				<TriggerLabel>Motion Detected</TriggerLabel>
+				<ControlPageLabel>Motion Detected</ControlPageLabel>
+			</State>
+			<State id="MotionDelay">
+				<ValueType>Boolean</ValueType>
+				<TriggerLabel>Delayed Motion</TriggerLabel>
+				<ControlPageLabel>Delayed Motion</ControlPageLabel>
+			</State>
+			<State id="MaxArea">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Maximum Area</TriggerLabel>
+				<ControlPageLabel>Maximum Area</ControlPageLabel>
+			</State>
+			<State id="MaxHeight">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Maximum Height</TriggerLabel>
+				<ControlPageLabel>Maximum Height</ControlPageLabel>
+			</State>			
+			<State id="MaxWidth">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Maximum Width</TriggerLabel>
+				<ControlPageLabel>Maximum Width</ControlPageLabel>
+			</State>
+			<State id="MaxPortion">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Maximum Portion</TriggerLabel>
+				<ControlPageLabel>Maximum Portion</ControlPageLabel>
+			</State>
+			<State id="hcount">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Horizontal Count</TriggerLabel>
+				<ControlPageLabel>Horizontal Count</ControlPageLabel>
+			</State>
+			<State id="scount">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Square Count</TriggerLabel>
+				<ControlPageLabel>Square Count</ControlPageLabel>
+			</State>
+			<State id="vcount">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Vertical Count</TriggerLabel>
+				<ControlPageLabel>Vertical Count</ControlPageLabel>
+			</State>
+			<State id="smcount">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Small Count</TriggerLabel>
+				<ControlPageLabel>Small Count</ControlPageLabel>
+			</State>
+			<State id="mcount">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Medium Count</TriggerLabel>
+				<ControlPageLabel>Medium Count</ControlPageLabel>
+			</State>	
+			<State id="lcount">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Large Count</TriggerLabel>
+				<ControlPageLabel>Large Count</ControlPageLabel>
+			</State>	
 			<State id="CameraState">
 				<ValueType>String</ValueType>
 				<TriggerLabel>Camera State</TriggerLabel>
@@ -237,36 +231,16 @@
 				<TriggerLabel>Seconds Offline</TriggerLabel>
 				<ControlPageLabel>Seconds Offline</ControlPageLabel>
 			</State>
-			<State id="PixelDiff">
-				<ValueType>Number</ValueType>
-				<TriggerLabel>Pixel Difference</TriggerLabel>
-				<ControlPageLabel>Pixel Difference</ControlPageLabel>
-			</State>
-			<State id="ImageAveDiff">
-				<ValueType>Number</ValueType>
-				<TriggerLabel>Average Difference</TriggerLabel>
-				<ControlPageLabel>Average Difference</ControlPageLabel>
-			</State>
-			<State id="FramesDiff">
-				<ValueType>Number</ValueType>
-				<TriggerLabel>Different Frames</TriggerLabel>
-				<ControlPageLabel>Different Frames</ControlPageLabel>
-			</State>
-			<State id="MotionSeconds">
-				<ValueType>Number</ValueType>
-				<TriggerLabel>Seconds Since Last Recording</TriggerLabel>
-				<ControlPageLabel>Seconds Since Last Recording</ControlPageLabel>
-			</State>
-			<State id="MotionDetected">
-				<ValueType>String</ValueType>
-				<TriggerLabel>Motion Detected</TriggerLabel>
-				<ControlPageLabel>Motion Detected</ControlPageLabel>
-			</State>
 			<State id="RecordSeconds">
 				<ValueType>Number</ValueType>
 				<TriggerLabel>Seconds Since Last Recording</TriggerLabel>
 				<ControlPageLabel>Seconds Since Last Recording</ControlPageLabel>
-			</State>		
+			</State>
+			<State id="Playing">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Playing</TriggerLabel>
+				<ControlPageLabel>Playing</ControlPageLabel>
+			</State>			
 			<State id="Recording01">
 				<ValueType>String</ValueType>
 				<TriggerLabel>Recording 01</TriggerLabel>
@@ -368,9 +342,6 @@
 				<TriggerLabel>New Recording 10</TriggerLabel>
 				<ControlPageLabel>New Recording 10</ControlPageLabel>
 			</State>
-			
-			
-			
 			
 		</States>
 	</Device>

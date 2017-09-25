@@ -21,7 +21,22 @@
 		<CallbackMethod>ToggleResolution</CallbackMethod>
 	</Action>
 	
-	<Action id="actionSeperatorZ" />
+	<Action id="actionSeperatorMotion" />
+	
+	<Action id="MotionOn" deviceFilter="self">
+		<Name>Motion On</Name>
+		<CallbackMethod>MotionOn</CallbackMethod>
+	</Action>
+	<Action id="MotionOff" deviceFilter="self">
+		<Name>Motion Off</Name>
+		<CallbackMethod>MotionOff</CallbackMethod>
+	</Action>
+	<Action id="ToggleMotion" deviceFilter="self">
+		<Name>Toggle Motion</Name>
+		<CallbackMethod>ToggleMotion</CallbackMethod>
+	</Action>
+	
+	<Action id="actionSeperatorCarousel" />
 	
 	<Action id="ToggleCarousel" deviceFilter="self">
 		<Name>Toggle Carousel</Name>
@@ -36,7 +51,7 @@
 		<CallbackMethod>NextCarouselCamera</CallbackMethod>
 	</Action>
 	
-	<Action id="actionSeperator0" />
+	<Action id="actionSeperatorPhoto" />
 	
 	<Action id="Snapshot" deviceFilter="self">
 		<Name>Snapshot</Name>
@@ -58,7 +73,7 @@
 		<CallbackMethod>Mosaic</CallbackMethod>
 	</Action>
 	
-	<Action id="actionSeperator1" />
+	<Action id="actionSeperatorRecord" />
 	
 	<Action id="RecordCamera" deviceFilter="self">
 		<Name>Record</Name>
@@ -85,7 +100,6 @@
 		</ConfigUI>
 		<CallbackMethod>PlayRecording</CallbackMethod>
 	</Action>
-	
 	<Action id="Pause">
 		<Name>Pause/Play</Name>
 		<CallbackMethod>PauseRecording</CallbackMethod>
@@ -99,7 +113,7 @@
 		<CallbackMethod>FrameForward</CallbackMethod>
 	</Action>
 	
-	<Action id="actionSeperator2" />
+	<Action id="actionSeperatorCommand" />
 	
 	<Action id="CameraCommand">
 		<Name>Camera Command</Name>
@@ -113,11 +127,14 @@
 		</ConfigUI>
 		<CallbackMethod>CameraCommand</CallbackMethod>
 	</Action>
+	
+	<Action id="actionSeperatorArchive" />
+	
 	<Action id="DeleteRecording" deviceFilter="self">
-		<Name>Delete Old Files</Name>
+		<Name>Archive Old Files</Name>
 		<ConfigUI>
 			<Field id="DeleteMonths" type="textfield">
-				<Label>Delete recording older than (in months):</Label>
+				<Label>Archive recording older than (in months):</Label>
 			</Field>
 		</ConfigUI>					
 		<CallbackMethod>DeleteRecording</CallbackMethod>

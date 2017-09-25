@@ -6,29 +6,29 @@
 
 import indigo
 import os
+from os import symlink
 from os import listdir
 from os.path import isfile, join
 import sys
 import time
-import thread
 import threading
-import subprocess
 import datetime
-import urllib
-import urllib2
 import shutil
 import math
-
+import requests
+from requests.auth import HTTPDigestAuth
 from datetime import date
 from ghpu import GitHubPluginUpdater
-from PIL import Image
-from PIL import ImageFont
-from PIL import ImageDraw 
-from PIL import ImageChops 
-from PIL import ImageEnhance
+from PIL import Image, ImageFont, ImageDraw, ImageChops, ImageEnhance
+from StringIO import StringIO
+import numpy as np
+import scipy as sp
+import scipy.ndimage as ndimage
+import scipy.spatial as spatial
+import scipy.misc as misc
+import glob
 
-from images2gif import writeGif
-
+#Global Variables
 Intiation = True
 
 # Note the "indigo" module is automatically imported and made available inside
@@ -36,37 +36,44 @@ Intiation = True
 
 ################################################################################
 #
-# Image Procedures
+# Misc Functions
 #
 ################################################################################
 
 def getSortedDir(path, srch, start, finish):
 
 	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
-
-	#File From test
 	PathCheck = os.path.isdir(path)
 	
 	if PathCheck is False:
 		return "False"
 	else:
 
+		#name_list = [f for f in listdir(path) if isfile(join(path, f))]
+		#try:
+			#full_list = [os.path.join(path,i) for i in name_list]
+			#time_sorted_list = sorted(full_list, key=os.path.getmtime, reverse=True)
+		#except:
+			#indigo.server.log("Get file list sub: " + str(errtxt))
+		#Search for ext in file name
+		#for file in time_sorted_list:
+			#if file.find(srch) != -1:
+				#filter_list.append(file) 
+				
 		filter_list = []
 
-		name_list = [f for f in listdir(path) if isfile(join(path, f))]
-		full_list = [os.path.join(path,i) for i in name_list]
-		time_sorted_list = sorted(full_list, key=os.path.getmtime, reverse=True)
-		for file in time_sorted_list:
-			if file.find(srch) != -1:
-				filter_list.append(file) 
-	
+		filter_list = glob.glob(path + "/" + srch + "*.jpg")
+		time_sorted_list = sorted(filter_list, key=os.path.getmtime, reverse=True)
+				
 		if start < 0:
 			start = 0
-
-		if finish > len(filter_list):
-			finish = len(filter_list)	
-
-		final_list = filter_list[start:finish]
+			
+		if finish > len(time_sorted_list):
+			finish = len(time_sorted_list)
+			
+		#return final list
+		final_list = time_sorted_list[start:finish]
+		#indigo.server.log("mark1:" + str(len(final_list)))
 		return final_list
 
 def rmsdiff(im1, im2):
@@ -78,306 +85,675 @@ def rmsdiff(im1, im2):
 	rms = math.sqrt(sum_of_squares/float(im1.size[0] * im1.size[1]))
 	return rms
 
-def GetSnapshot(device):
-	##################Get single image
-	
-	nowtime = datetime.datetime.now()
-	displaytime = str(nowtime).split(".")[0]
-	CameraName = device.pluginProps["CameraName"]
-	labeltext = CameraName + " : " + displaytime
-	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
-	CameraDir = MainDir + "/" + CameraName
-	OrigImage = CameraDir + "/OrigImage.jpg"
-	CurrentImage = CameraDir + "/CurrentImage.jpg"
-	CameraAddress = device.pluginProps["CameraAddress"]
-	CameraUser = device.pluginProps["uname"]
-	CameraPwd = device.pluginProps["pwd"]
-	
-	try:
-		CaptureType = device.pluginProps["CaptureType"]
-	except:
-		CaptureType = "http://"
-		
-	URLAddress = CaptureType + CameraAddress
-	CameraTimeout = device.pluginProps["CameraTimeout"]
-	
-	#setup image enhancement parameters
-	RawImage = device.pluginProps["Raw"]
-	CameraRotation = device.pluginProps["CameraRotation"]
-	ImageWidth = device.pluginProps["ImageWidth"]
-	ImageHeight = device.pluginProps["ImageHeight"]
-	BorderWidth = str(device.pluginProps["BorderWidth"])
-	BorderColor = device.pluginProps["BorderColor"]
-	Brightness = device.pluginProps["Brightness"]
-	Contrast = device.pluginProps["Contrast"]
-	Sharpness = device.pluginProps["Sharpness"]
+################################################################################
+#
+# Motion Detection Procedures
+#
+################################################################################
 
-	try:
-		CaptureProtocol = device.pluginProps["CaptureProtocol"]
-	except:
-		CaptureProtocol = "urllib"
+class BBox(object):
+    def __init__(self, x1, y1, x2, y2):
+        '''
+        (x1, y1) is the upper left corner,
+        (x2, y2) is the lower right corner,
+        with (0, 0) being in the upper left corner.
+        '''
+        if x1 > x2: x1, x2 = x2, x1
+        if y1 > y2: y1, y2 = y2, y1
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
+    def taxicab_diagonal(self):
+        '''
+        Return the taxicab distance from (x1,y1) to (x2,y2)
+        '''
+        return self.x2 - self.x1 + self.y2 - self.y1
+    def overlaps(self, other):
+        '''
+        Return True iff self and other overlap.
+        '''
+        return not ((self.x1 > other.x2)
+                    or (self.x2 < other.x1)
+                    or (self.y1 > other.y2)
+                    or (self.y2 < other.y1))
+    def __eq__(self, other):
+        return (self.x1 == other.x1
+                and self.y1 == other.y1
+                and self.x2 == other.x2
+                and self.y2 == other.y2)
 
-	if CaptureProtocol == "urllib2":
-		passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
-		passman.add_password(None, CaptureType + CameraAddress, CameraUser, CameraPwd)
-		auth_handler = urllib2.HTTPBasicAuthHandler(passman)
-		opener = urllib2.build_opener(auth_handler)
-		urllib2.install_opener(opener)
-		try:
-			jpgfile = urllib2.urlopen(CaptureType + CameraAddress,timeout=10)
-			with open(OrigImage,'wb') as output:
-				output.write(jpgfile.read())
-				device.updateStateOnServer("CameraState", value="On")
-				ImageFound = True
-		except:
-			ImageFound = False		
-	else:
-  		try:
-			f = urllib.urlopen(URLAddress)
-			with open(OrigImage, "wb") as imgFile:
-				imgFile.write(f.read())
-			device.updateStateOnServer("CameraState", value="On")
-			ImageFound = True
-		except:
-			ImageFound = False
+def NewMotionCheck(imgA, imgB, CameraDir):
+
+	#indigo.server.log("enter new motion")
 	
-	if ImageFound:
-		device.updateStateOnServer("OfflineSeconds", value="0")
-		if str(RawImage) == "False":
-			#get image
-			img = Image.open(OrigImage)
+	outlineimage = CameraDir + "/outline.jpg"
+	#bwimage = GetDiff(imgA, imgB)
+	img3 = GetDiff(imgA, imgB)
+	MotionDetected = False
+	listwidth = [0.0]
+	listheight = [0.0]
+	listarea = [0.0]
+	listportion = [0.0]
+	listratio = [0.0]
+	bboxlist = []
+	smoothradius = 15
+	threshold = 25
+	
+	vcount = 0
+	hcount = 0
+	scount = 0
+	
+	smcount = 0
+	mcount = 0
+	lcount = 0
+	
+	topedge = 35
+	
+	minportion = .002
+	maxportion = .30
+	
+	imgsize = img3.size
+	bottomedge = imgsize[1]*.90
+	imgarea = imgsize[0]*imgsize[1]
+	
+	#indigo.server.log("getting blobs")
+	blobdata = misc.fromimage(img3, flatten=True)
+	blobs = findBlobs(blobdata, smoothradius, threshold) #(smooth radius, threshold)
+	bboxcount = 0
+	
+	#indigo.server.log(str(len(blobs)))
+	if len(blobs) > 0:
+		bboxes = remove_overlaps(slice_to_bbox(blobs))
+		img_draw = ImageDraw.Draw(imgB)
+
+		#indigo.server.log("-----")	
+		#indigo.server.log(str(len(bboxes)))
+		for bbox in bboxes:
+			UniqueBox = True
+			boxdem = (str(bbox.x1)+str(bbox.x2)+str(bbox.y1)+str(bbox.y2))
 			
-			#Resize image
-			try:
-				Aspect = device.pluginProps["Aspect"]
-			except:
-				Aspect = "true"
-			
-			old_size = img.size
-			new_size = (int(ImageWidth), int(ImageHeight))
-			new_img = Image.new("RGB", new_size, "black")
-
-			per_dem = (float(new_size[0])/float(old_size[0]), float(new_size[1])/float(old_size[1]))
-
-			if (per_dem[0] > per_dem[1]):
-				percent = per_dem[1]
+			if boxdem in bboxlist:
+				UniqueBox = False
 			else:
-				percent = per_dem[0]
-
-			recalc_size = (int(old_size[0]*percent),int(old_size[1]*percent))
-			img = img.resize(recalc_size)
-			final_size  = img.size 
-			
-			aBorderWidth = int((new_size[0] - final_size[0])/2)
-			aBorderHeight = int((new_size[1] - final_size[1])/2)
-			new_img.paste(img, (aBorderWidth,aBorderHeight))
-			
-			img = new_img
-			new_image=""
-			
-			#rotate image
-			img = img.rotate(int(CameraRotation))
-			#brighten image
-			enhancer = ImageEnhance.Brightness(img)
-			img = enhancer.enhance(float(Brightness))
-			#contrast image
-			enhancer = ImageEnhance.Contrast(img)
-			img = enhancer.enhance(float(Contrast))
-			#sharpen image
-			enhancer = ImageEnhance.Sharpness(img)
-			img = enhancer.enhance(float(Sharpness))
+				bboxlist.append(boxdem)
 		
-			#Add date time label
-			new_img = AddLabel(img, labeltext)
+			#indigo.server.log(str(bbox.y2))
+			width = float(bbox.x2 - bbox.x1) #/ float(imgsize[0])			
+			height = float(bbox.y2 - bbox.y1) #/ float(imgsize[1])
+			area = float(width*height) #/ float(imgsize[0]*imgsize[1])
+			portion = float(area/imgarea)
+			ratio = float(height/width)
 		
-			if int(BorderWidth) > 0:		
-				old_size = new_img.size
-				#Create border
-				borderedge = int(BorderWidth)*2
-				new_size = (old_size[0]+borderedge, old_size[1]+borderedge)
-				final_img = Image.new("RGB", new_size, BorderColor) 
-				final_img.paste(new_img, (int(BorderWidth),int(BorderWidth)))
-			else:
-			#Save image without border
-				final_img = new_img
-		else:
-			final_img = Image.open(OrigImage)
-	else:
-		OfflineSeconds = int(device.states["OfflineSeconds"])
-		OfflineSeconds += 1
-		device.updateStateOnServer("OfflineSeconds", value=str(OfflineSeconds))
-		final_img = Image.open(CurrentImage)
-
-	return final_img
-
-def AddLabel(img, labeltext):
-	## add text to both HR and LR images
-			
-	#Create label border (based on image % size)
-	old_size = img.size
-	labelBorder = int(old_size[1]*.06)
-
-	new_size = (old_size[0], old_size[1]+labelBorder)					
-	new_img = Image.new("RGB", new_size, "grey")
-	new_size2 = new_img.size
-			
-	#Add label text
-	textSize = int(labelBorder/2)
-	draw = ImageDraw.Draw(new_img)
-	font = ImageFont.truetype("Verdana.ttf", textSize)
-	draw.text((5, old_size[1]+3),labeltext,(255,255,255),font=font)
-	#Add image to label
-	new_img.paste(img, (0,0))
-	
-	return new_img
+			if UniqueBox and bbox.y1 <= bottomedge and bbox.y2 >= topedge and (minportion <= portion <= maxportion):
+				MotionDetected = True
+				bboxcount = bboxcount + 1
 				
-	##To here
+				#indigo.server.log(str(bbox.x1) + ":" + str(bbox.y1) + "  " + str(bbox.x2) + ":" + str(bbox.y2))
 
-def GetImage(device):
-	##################Capture image for video
-	
-	CameraName = device.pluginProps["CameraName"]
-	nowtime = datetime.datetime.now()
-	displaytime = str(nowtime).split(".")[0]
-	labeltext = CameraName + " : " + displaytime
-	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
-	CameraDir = MainDir + "/" + CameraName
-	TempImage = CameraDir + "/TempImage.jpg"
-	CurrentImage = CameraDir + "/CurrentImage.jpg"
-	CurrentImageLR = CameraDir + "/CurrentImageLR.jpg"
-
-	
-	imagedate = time.strftime("%m.%d.%Y.%H.%M.%S")
-	NewImage = CameraDir + "/img_" + imagedate + ".jpg"	
-	
-	img = GetSnapshot(device)
-
-	imagecount = []
-	imagelist = [f for f in listdir(CameraDir) if isfile(join(CameraDir, f))]
-	for file in imagelist:
-		if file.find("img") != -1:
-			imagecount.append(file)
-	
-	if len(imagecount) > 30:
-		sortedList = getSortedDir(CameraDir, "img", 30, 100)
-	
-	try:	
-		for file in sortedList:
-			os.remove(file)
-	except:
-		pass		
-	
-	try:
-		ImageQuality = int(device.pluginProps["ImageQuality"])
-	except:
-		ImageQuality = 75
-	
-	#save high res image
-	#Add date time label
-	#indigo.server.log("Mark 1")
-	#img = AddLabel(img, labeltext)
-	img.save(NewImage,optimize=True,quality=ImageQuality)
-	
-	#Create low res image
-	basewidth = 250
-	wpercent = (basewidth/float(img.size[0]))
-	hsize = int((float(img.size[1])*float(wpercent)))
-	simg = img.resize((basewidth,hsize))
-	#Add date time label
-	#indigo.server.log("mark 2")
-	#img = AddLabel(simg, labeltext)
-	simg.save(CurrentImageLR,optimize=True,quality=15)
-	
-	shutil.copy(NewImage, TempImage)
-	os.rename(TempImage, CurrentImage)
-
-def MotionCheck(device):
-	##################Check for motion
-
-	#Update Threadcount
-	localPropsCopy = device.pluginProps
-	#localPropsCopy["MotionThreads"] = "1"
-	#device.replacePluginPropsOnServer(localPropsCopy)
-
-	#variable setup
-	MaxSensitivity = float(device.pluginProps["MaxSensitivity"])
-	MinSensitivity = float(device.pluginProps["MinSensitivity"])
-	FramesDifferent = int(device.pluginProps["FramesDifferent"])
-	MotionReset = int(device.pluginProps["MotionReset"])
-	CameraName = device.pluginProps["CameraName"]
-	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
-	CameraDir = MainDir + "/" + CameraName
-	CheckMotion = device.pluginProps["CheckMotion"]
-
-	#Set images
-	img1 = Image.open(CameraDir + "/CurrentImage.jpg")
-	sortedList = getSortedDir(CameraDir, "img", 7, 8)
-	img2 = Image.open(sortedList[0])
-	ImageDiff = rmsdiff(img1,img2)
-
-	#Average image difference
-	ImageAveDiff = device.states["ImageAveDiff"]
-	if ImageAveDiff == "":
-		ImageAveDiff = "0"
-		device.updateStateOnServer("ImageAveDiff", value=0)
-	ImageAveDiff = float(ImageAveDiff)
-	FramesDiff = device.states["FramesDiff"]
-
-	#Check for change or update average
-	if ImageDiff > 0:
-		DiffFromAve = float(ImageDiff - ImageAveDiff)
-		DiffFromAve = round(DiffFromAve,4)
-		device.updateStateOnServer("PixelDiff", value=DiffFromAve)
-
-		if MinSensitivity <= DiffFromAve <= MaxSensitivity:
-			FramesDiff = FramesDiff + 1
-			device.updateStateOnServer("FramesDiff", value=FramesDiff)
-		elif float(ImageDiff) <= float(ImageAveDiff)+10:
-			ImageNewAve = round(float(((ImageAveDiff*10) + ImageDiff)/11),4)
-			device.updateStateOnServer("ImageAveDiff", value=ImageNewAve)
-			device.updateStateOnServer("FramesDiff", value=0)
-			MotionSeconds = device.states["MotionSeconds"] + 1
-			device.updateStateOnServer("MotionSeconds", value=MotionSeconds)
-	else:
-		indigo.server.log("Motion Check: " + str(ImageNewAve))
-		device.updateStateOnServer("ImageAveDiff", value="0")
-		device.updateStateOnServer("MotionSeconds", value=0)
-
-	if CheckMotion:
-		#Add label
-		imgsize = img1.size
-		draw = ImageDraw.Draw(img1)
-		font = ImageFont.truetype("Verdana.ttf", 8)
-		draw.text(((imgsize[0]-75), (imgsize[1]-15)),str(DiffFromAve),(255,255,255),font=font)
-		img1.save(CameraDir + "/CurrentImage.jpg")
-		sortedList = getSortedDir(CameraDir, "img", 7, 8)
-		img1.save(sortedList[0])
+				if ratio >= 1.2:  vcount = vcount + 1				
+				if .8 < ratio < 1.2:  scount = scount + 1
+				if ratio <= .8:  hcount = hcount + 1	
+				
+				if portion <= .01: 
+					smcount = smcount + 1
+					img_draw.rectangle((bbox.x1, bbox.y1, bbox.x2, bbox.y2), fill=None, outline=(255,255,0))
+				if .01 < portion < .05: 
+					mcount = mcount + 1
+					img_draw.rectangle((bbox.x1, bbox.y1, bbox.x2, bbox.y2), fill=None, outline=(255,128,0))
+				if portion >= .05: 
+					lcount = lcount + 1
+					img_draw.rectangle((bbox.x1, bbox.y1, bbox.x2, bbox.y2), fill=None, outline=(255,0,0))
+				
+				listarea.append(area)
+				listheight.append(height)
+				listwidth.append(width)
+				listportion.append(portion)
 		
-	if int(FramesDiff) >= int(FramesDifferent):
-		device.updateStateOnServer("MotionDetected", value="true")
-		device.updateStateOnServer("MotionSeconds", value=0)
+		#indigo.server.log(str(bboxcount))
+				
+	#indigo.server.log(str(len(listarea)))
+	maxarea = max(listarea)
+	maxheight = max(listheight)
+	maxwidth = max(listwidth)
+	maxportion = max(listportion)
+	#indigo.server.log("mark 2")	
+	#indigo.server.log("exit new motion")
+			
+	return {'img':imgB, 'MaxArea':maxarea, 'MaxHeight':maxheight, 'MaxWidth':maxwidth, 'MaxPortion':maxportion, \
+	'MotionDetected':MotionDetected, 'vcount':vcount, 'scount':scount, 'hcount':hcount, \
+	'smcount':smcount, 'mcount':mcount, 'lcount':lcount}
+
+def findBlobs(data, smooth_radius, threshold):
+    """Detects and isolates contiguous regions in the input array"""
+    # Blur the input data a bit so the blobs have a continous footprint 
+    data = sp.ndimage.uniform_filter(data, smooth_radius)
+    # Threshold the blurred data (this needs to be a bit > 0 due to the blur)
+    thresh = data > threshold
+    # Fill any interior holes in the paws to get cleaner regions...
+    filled = sp.ndimage.morphology.binary_fill_holes(thresh)
+    # Label each contiguous blob
+    coded_blobs, num_paws = sp.ndimage.label(filled)
+    # Isolate the extent of each paw
+    data_slices = sp.ndimage.find_objects(coded_blobs)
+    return data_slices
+
+def slice_to_bbox(slices):
+    for s in slices:
+        dy, dx = s[:2]
+        yield BBox(dx.start, dy.start, dx.stop+1, dy.stop+1)
+
+def remove_overlaps(bboxes):
+    '''
+    Return a set of BBoxes which contain the given BBoxes.
+    When two BBoxes overlap, replace both with the minimal BBox that contains both.
+    '''
+    # list upper left and lower right corners of the Bboxes
+    corners = []
+
+    # list upper left corners of the Bboxes
+    ulcorners = []
+
+    # dict mapping corners to Bboxes.
+    bbox_map = {}
+
+    for bbox in bboxes:
+        ul = (bbox.x1, bbox.y1)
+        lr = (bbox.x2, bbox.y2)
+        bbox_map[ul] = bbox
+        bbox_map[lr] = bbox
+        ulcorners.append(ul)
+        corners.append(ul)
+        corners.append(lr)        
+
+    # Use a KDTree so we can find corners that are nearby efficiently.
+    tree = spatial.KDTree(corners)
+    new_corners = []
+    for corner in ulcorners:
+        bbox = bbox_map[corner]
+        # Find all points which are within a taxicab distance of corner
+        indices = tree.query_ball_point(
+            corner, bbox_map[corner].taxicab_diagonal(), p = 1)
+        for near_corner in tree.data[indices]:
+            near_bbox = bbox_map[tuple(near_corner)]
+            if bbox != near_bbox and bbox.overlaps(near_bbox):
+                # Expand both bboxes.
+                # Since we mutate the bbox, all references to this bbox in
+                # bbox_map are updated simultaneously.
+                bbox.x1 = near_bbox.x1 = min(bbox.x1, near_bbox.x1)
+                bbox.y1 = near_bbox.y1 = min(bbox.y1, near_bbox.y1) 
+                bbox.x2 = near_bbox.x2 = max(bbox.x2, near_bbox.x2)
+                bbox.y2 = near_bbox.y2 = max(bbox.y2, near_bbox.y2) 
+    return set(bbox_map.values())
+    
+def GetDiff(img1, img2):
+	img1 = img1.convert('L')
+	img2 = img2.convert('L')
+	img3 = ImageChops.difference(img1, img2)
+	img3 = img3.convert('L')
+	img3 = img3.convert('RGB')
+	return img3
+
+def convertBW(img3):
+	datas = img3.getdata()
+	newData = []
+	white = 0
+	black = 0
+
+	for item in datas:
+		if item[0] >= 35 and item[1] >= 35 and item[2] >= 35:
+			newData.append((255, 255, 255))
+			white = white + 1
+		else:
+			newData.append((0,0,0))
+			black = black + 1
+			
+	img3.putdata(newData)
+	percentdiff = float(float(white) / (float(white) + float(black)))*100
 	
-	if int(MotionSeconds) >= int(MotionReset):
-		device.updateStateOnServer("MotionDetected", value="false")
+	return {'img3':img3, 'whitepx':white, 'blackpx': black, 'percentpx':percentdiff}
+
+################################################################################
+#
+# New Image Procedures
+#
+################################################################################
+
+def addLabel(img, labeltext):
+	oldSize = img.size
+	labelBorder = int(oldSize[1]*.06)
+	newSize = (oldSize[0], labelBorder)	
+	newImg = Image.new('RGBA', newSize, (128, 128, 128, 200))
+	textSize = labelBorder-8	
 	
+	#Add label text
+	draw = ImageDraw.Draw(newImg)
+	font = ImageFont.truetype("Verdana.ttf", textSize)
+	draw.text((5, 0),labeltext,(255,255,255),font=font)
+	
+	#Add label to image
+	img.paste(newImg, (0,oldSize[1]-labelBorder+5), newImg)
+	
+	return img
+
+def getURLImage(url,user,pwd,digest):
+	
+	#########  Add code to open HTML to File images
+	img = "error"
+	timecheck = datetime.datetime.now()
+	
+	#indigo.server.log("start url capture:" + url + "- digest " + str(digest))
+	if digest:
+		try:
+			response = requests.get(url, auth=HTTPDigestAuth(user, pwd), timeout=(1,6))
+			img = Image.open(StringIO(response.content))
+		except Exception as errtxt:
+			#indigo.server.log("Getting Image: " + str(errtxt))
+			img = "error"
+			pass
+	else:
+		try:
+			response = requests.get(url, auth=(user, pwd), timeout=(1,6))
+			img = Image.open(StringIO(response.content))
+		except Exception as errtxt:
+			#indigo.server.log("Getting Image: " + str(errtxt))
+			img = "error"
+			pass
+			
+	return img
+
+def addBorder(img, width, height, color):
+	#calculate black borders to keep aspect ratio
+	oldSize = img.size
+	newSize = (width, height)
+	backgroundImg = Image.new("RGB", newSize, color)
+	borderWidth = int((newSize[0] - oldSize[0])/2)
+	borderHeight = int((newSize[1] - oldSize[1])/2)
+	backgroundImg.paste(img, (borderWidth,borderHeight))
+	
+	return backgroundImg
+
+def editImage(img, rotation, brightness, contrast, sharpness, bandw):
+	#rotate image
+	if rotation != 0:
+		img = img.rotate(rotation)
+	#brighten image
+	if brightness != 1:
+		enhancer = ImageEnhance.Brightness(img)
+		img = enhancer.enhance(brightness)
+	#contrast image
+	if contrast != 1:
+		enhancer = ImageEnhance.Contrast(img)
+		img = enhancer.enhance(contrast)
+	#sharpen image
+	if sharpness != 1:
+		enhancer = ImageEnhance.Sharpness(img)
+		img = enhancer.enhance(sharpness)
+	#convert to black and white
+	if bandw:
+		img = img.convert('L')
+		
+	return img
+		
+def CameraThread(deviceID, MainDir):
+	ImageFound = 0
+	FramesDiff = 0
+	MotionSeconds = 0
+	MotionDetected = False
+	MotionDelayedCounter = 0
+	
+	while True:
+	
+		device = indigo.devices[deviceID]
+		CameraState = device.states["CameraState"]
+		CameraName = device.pluginProps["CameraName"]
+		CameraDir = MainDir + "/" + CameraName
+
+		CurrentImage = CameraDir + "/" + "/CurrentImage.jpg"		
+		CurrentImageTH = CameraDir + "/" + "CurrentImageTH.jpg"	
+		TempMotion = CameraDir + "/TempMotion.jpg"	
+		ErrorImage = CameraDir + "/NotActive.jpg"
+		TempImage = CameraDir + "/TempImage.jpg"
+		ErrorImage = CameraDir + "/NotActive.jpg"
+		TestImage = CameraDir + "/test.jpg"
+		TempMotion = CameraDir + "/TempMotion.jpg"
+		
+		#if CameraName == "Garage":
+			#time.sleep(10)
+			#indigo.server.log("Garage Mark 1")
+			
+		try:
+			RecordSeconds = device.states["RecordSeconds"]+1
+			device.updateStateOnServer("RecordSeconds", value=RecordSeconds)
+		except Exception as errtxt:
+			indigo.server.log("Record Seconds: " + str(errtxt))
+
+		#if CameraName == "Garage":
+			#indigo.server.log("Garage Mark 2")
+
+		if CameraState == "On":
+			timecheck = datetime.datetime.now()
+			
+			CameraName = device.pluginProps["CameraName"]
+			CameraTimeout = int(device.pluginProps["CameraTimeout"])
+			url = device.pluginProps["CaptureType"] + device.pluginProps["CameraAddress"]
+			user = device.pluginProps["uname"]
+			pwd = device.pluginProps["pwd"]
+			Timeout = int(device.pluginProps["CameraTimeout"])
+			
+			ImageWidth = int(device.pluginProps["ImageWidth"])
+			ImageHeight = int(device.pluginProps["ImageHeight"])
+			BorderWidth = int(device.pluginProps["BorderWidth"])*2
+			BorderColor = device.pluginProps["BorderColor"]
+			Digest = device.pluginProps["Digest"]
+			Rotation = device.pluginProps["CameraRotation"]
+			Brightness = device.pluginProps["Brightness"]
+			Contrast = device.pluginProps["Contrast"]
+			Sharpness = device.pluginProps["Sharpness"]
+			ImageQuality = int(device.pluginProps["ImageQuality"])
+			
+			CheckMotion = device.pluginProps["CheckMotion"]
+			Motion = device.pluginProps["Motion"]
+			MotionDelay = int(device.pluginProps["MotionDelay"])
+			device.updateStateOnServer("Motion", value=Motion)
+			device.updateStateOnServer("MotionDetected", value=False)
+			MotionResults = ""
+			imgM = ""
+
+			#if CameraName == "Garage":
+				#indigo.server.log("Garage Mark 3")
+
+			imagedate = time.strftime("%m.%d.%Y.%H.%M.%S")
+			NewImage = CameraDir + "/img_" + imagedate + ".jpg"
+			
+			nowtime = datetime.datetime.now()
+			displaytime = str(nowtime).split(".")[0]
+			labelText = CameraName + " : " + displaytime
+			
+			try:
+				img=getURLImage(url,user,pwd,Digest)
+			except Exception as errtxt:
+				indigo.server.log(CameraName + "Get URL Image: " + str(errtxt))
+
+			#indigo.server.log("Mark 1")			
+			#indigo.server.log(str(len(img)))
+			
+			#if CameraName == "Garage":
+				#indigo.server.log("Garage Mark 4")
+			
+			if img == "error":
+				ImageFound = ImageFound + 1
+			else:
+				ImageFound = 0
+
+			if ImageFound == 0:
+				try:	
+					sortedList = getSortedDir(CameraDir, "img", 1, 35)
+				except Exception as errtxt:
+					indigo.server.log(CameraName + "Get file list: " + str(errtxt))
+				
+				try:	
+					#indigo.server.log("Set Size")
+					img.thumbnail((ImageWidth, ImageHeight))
+					#indigo.server.log(Brightness +":"+ Contrast +":"+ Sharpness)
+					img=editImage(img, int(Rotation), float(Brightness), float(Contrast), float(Sharpness), False)
+					#indigo.server.log("Add black bars")
+					img=addBorder(img, ImageWidth, ImageHeight, "black")
+					#indigo.server.log("Add Text")		
+					img=addLabel(img, labelText)
+					#indigo.server.log("Add Border")
+					img=addBorder(img, ImageWidth + BorderWidth, ImageHeight + BorderWidth, BorderColor)
+				except Exception as errtxt:
+					indigo.server.log(CameraName + " edit image: " + str(errtxt))
+
+				if Motion == True:			
+					if len(sortedList) > 5:
+						try:
+							motionimage = Image.open(sortedList[0])
+							MotionResults = NewMotionCheck(motionimage, img, CameraDir)
+						except Exception as errtxt:
+							indigo.server.log(CameraName + "Get motion: " + str(errtxt))
+						
+						try:											
+							MaxArea = "%.0f" % MotionResults['MaxArea']
+							MaxHeight = "%.0f" % MotionResults['MaxHeight']
+							MaxWidth = "%.0f" % MotionResults['MaxWidth']
+							MaxPortion = "%.3f" % MotionResults['MaxPortion']
+							vcount = MotionResults['vcount']
+							scount = MotionResults['scount']
+							hcount = MotionResults['hcount']
+							smcount = MotionResults['smcount']
+							mcount = MotionResults['mcount']
+							lcount = MotionResults['lcount']
+							shapecount = ("v" + str(vcount)+ ":s" + str(scount) + ":h" + str(hcount))
+							sizecount = ("s" + str(smcount) + ":m" + str(mcount) + ":l" + str(lcount))
+							MotionDetected = MotionResults['MotionDetected']
+						except Exception as errtxt:
+							indigo.server.log(CameraName + " Get motion states: " + str(errtxt))											
+					try:
+						if MotionDetected:
+							img = MotionResults['img']
+							device.updateStateOnServer("MotionDetected", value=MotionDetected)
+							device.updateStateOnServer("MaxHeight", value=MaxHeight)				
+							device.updateStateOnServer("MaxWidth", value=MaxWidth)					
+							device.updateStateOnServer("MaxArea", value=MaxArea)
+							device.updateStateOnServer("MaxPortion", value=MaxPortion)
+							device.updateStateOnServer("vcount", value=vcount)
+							device.updateStateOnServer("scount", value=scount)
+							device.updateStateOnServer("hcount", value=hcount)
+							device.updateStateOnServer("smcount", value=smcount)
+							device.updateStateOnServer("mcount", value=mcount)
+							device.updateStateOnServer("lcount", value=lcount)
+							MotionDelayedCounter = 1	
+							device.updateStateOnServer("MotionDelay", value=True)				
+						else:
+							device.updateStateOnServer("MotionDetected", value=MotionDetected)
+							device.updateStateOnServer("MaxHeight", value=0)					
+							device.updateStateOnServer("MaxWidth", value=0)					
+							device.updateStateOnServer("MaxArea", value=0)
+							device.updateStateOnServer("MaxPortion", value=0)
+							device.updateStateOnServer("vcount", value=0)
+							device.updateStateOnServer("scount", value=0)
+							device.updateStateOnServer("hcount", value=0)
+							device.updateStateOnServer("smcount", value=0)
+							device.updateStateOnServer("mcount", value=0)
+							device.updateStateOnServer("lcount", value=0)
+		
+						if MotionDelayedCounter < MotionDelay and MotionDelayedCounter > 0:
+							MotionDelayedCounter = MotionDelayedCounter +  1
+						else:
+							MotionDelayedCounter = 0
+							device.updateStateOnServer("MotionDelay", value=False)
+							
+					except Exception as errtxt:
+							indigo.server.log(CameraName + " get motion: " + str(errtxt))
+
+					#indigo.server.log(str(CheckMotion))
+					if CheckMotion == True:
+						#indigo.server.log("Add Motion Data")
+						draw = ImageDraw.Draw(img)
+						font = ImageFont.truetype("Verdana.ttf", 12)
+						labeltext = "M:" + str(MotionDetected) + " A:" + str(MaxArea) + " H:" + str(MaxHeight) + " W:" + str(MaxWidth) + " P:" + str(MaxPortion) + " " + shapecount + " " + sizecount
+						draw.text((10, 10),labeltext,(255,255,255),font=font)
+
+				#if CameraName == "Garage":
+					#indigo.server.log("Garage Mark 5")
+
+				#indigo.server.log("Final Save")
+				img.save(NewImage,optimize=True,quality=ImageQuality)
+				
+				if os.path.exists(TempImage):
+					os.remove(TempImage)
+
+				#indigo.server.log("Move Files")
+				try:							
+					os.symlink(NewImage, TempImage)
+				except Exception as errtxt:
+					indigo.server.log(CameraName + " change SymLink: " + str(errtxt))
+	
+				#indigo.server.log("Rename Files")
+				time.sleep(.1)
+				os.rename(TempImage, CurrentImage)
+						
+				#indigo.server.log("Save Thumbnails")		
+				imgTH = img
+				imgTH.thumbnail((250,250))
+				imgTH.save(CurrentImageTH,optimize=True,quality=ImageQuality)
+
+				#indigo.server.log("Image Cleanup")
+				if len(sortedList) > 30:
+					for item in range(30,len(sortedList)):
+						file = sortedList[item]
+						os.remove(file)	
+						
+				#indigo.server.log("----------:" + str((datetime.datetime.now() - timecheck)))	
+				
+			else:
+				if ImageFound == Timeout:
+					shutil.copy(ErrorImage, CurrentImageTH)
+					indigo.server.log("Image not loaded for " + CameraName + " camera. " + str(ImageFound))
+		else:
+			shutil.copy(ErrorImage, CurrentImageTH)
+			time.sleep(1)
+			
+################################################################################
+#
+# Master Image Procedures
+#
+################################################################################
+
+def MasterImage():
+	##################Display a master image of different cameras
+	DeviceID = int(indigo.activePlugin.pluginPrefs["MasterCamera"])
+	MasterCameraDevice = indigo.devices[DeviceID]
+	
+	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
+	PlayRecording = indigo.activePlugin.pluginPrefs["PlayRecording"]
+	RecordingFrame = indigo.activePlugin.pluginPrefs["RecordingFrame"]
+	RecordingFlag = indigo.activePlugin.pluginPrefs["RecordingFlag"]  
+	MasterCameraName = MasterCameraDevice.pluginProps["CameraName"]
+	ToggleResolution = indigo.activePlugin.pluginPrefs["LowRes"]
+
+	MasterCameraDir = MainDir + "/" + MasterCameraName
+	MasterRecording = MainDir + "/" + PlayRecording
+	MasterImage1 = MainDir + "/Master1.jpg"
+	MasterImage2 = MainDir + "/Master2.jpg"
+	MasterImage3 = MainDir + "/Master3.jpg"
+	MasterImage4 = MainDir + "/Master4.jpg"
+
+	#sortedList = getSortedDir(MasterCameraDir, "img", 0, 2)
+	#CurrentImage = sortedList[1]
+	CurrentImage = MasterCameraDir + "/CurrentImage.jpg"
+	CurrentImageLR = CurrentImage
+
+	#setup playing the master image
+	if ToggleResolution == "true":
+		CurrentImageLR = MasterCameraDir + "/CurrentImageTH.jpg"
+	
+	#setup playing a recording
+	sortedList = getSortedDir(MasterRecording, "img", 0, 30)
+	#indigo.server.log(str(len(sortedList)))
+	if sortedList == "False":
+		RecordingImage = MainDir + "/" + "NoRecording.jpg"
+	else:
+		if len(sortedList)-1 <= int(RecordingFrame):
+			RecordingFrame = 0
+	
+		try:
+			RecordingImage = sortedList[int(RecordingFrame)]
+		except Exception as errtxt:
+			indigo.server.log("Show recording " + str(len(sortedList)) + " " + str(RecordingFrame) + ":" + str(errtxt))
+
+	if str(RecordingFlag) == "1":
+		FileFrom = RecordingImage
+		CurrentImageLR = RecordingImage
+	else:
+		FileFrom = CurrentImage	
+			
+	try:
+		#Remove Files
+		if os.path.exists(MasterImage1):
+			os.remove(MasterImage1)
+		os.symlink(FileFrom, MasterImage1)		
+		
+		if os.path.exists(MasterImage2):
+			os.remove(MasterImage2)
+		os.symlink(CurrentImage, MasterImage2)	
+		
+		if os.path.exists(MasterImage3):
+			os.remove(MasterImage3)
+		os.symlink(RecordingImage, MasterImage3)	
+		
+		if os.path.exists(MasterImage4):
+			os.remove(MasterImage4)
+		os.symlink(CurrentImageLR, MasterImage4)
+
+	except Exception as errtxt:
+		indigo.server.log("Master: " + str(errtxt))
+
+def RunCarousel(MainDir, CarouselCount, CarouselTimer):
+
+	actlist = []
+	for sdevice in indigo.devices.iter("self"):
+		CameraState = sdevice.states["CameraState"]
+		if CameraState == "On":
+			actlist.append(sdevice.pluginProps["CameraName"] )
+	
+	MaxCarouselCount = len(actlist)
+		
+	if MaxCarouselCount > 0:				
+		if CarouselTimer >= 5:
+			CarouselTimer = 0
+			if CarouselCount >= MaxCarouselCount-1:
+				CarouselCount = 0
+			else:
+				CarouselCount = CarouselCount + 1
+		else:
+			CarouselTimer = CarouselTimer + 1
+	
+		try:
+			CarouselCamera = actlist[CarouselCount]	
+		except:
+			CarouselCamera = actlist[0]
+		
+		#indigo.server.log(CarouselCamera)
+		CurrentImage = MainDir + "/" + CarouselCamera + "/CurrentImage.jpg"
+		CurrentImageLR = MainDir + "/" + CarouselCamera + "/CurrentImageTH.jpg"
+		CarouselImage = MainDir + "/CarouselImage.jpg"
+		CarouselImageLR = MainDir + "/CarouselImageLR.jpg"
+		
+		try:
+			os.remove(CarouselImage)
+			os.remove(CarouselImageLR)
+		except Exception as errtxt:
+			indigo.server.log("Error Carousel File Remove: " + str(errtxt))	
+			
+		try:
+			os.symlink(CurrentImage, CarouselImage)
+			os.symlink(CurrentImageLR, CarouselImageLR)			
+		except Exception as errtxt:
+			indigo.server.log("Error Carousel SymLink: " + str(errtxt))
+		
+		indigo.activePlugin.pluginPrefs["CarouselCount"] = CarouselCount
+	return (CarouselTimer)
+
 def GetMosaic(device):
 	##################Create tiled version of last 6 images
-
 	SnapshotDir = indigo.activePlugin.pluginPrefs["SnapshotDirectory"]
 	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 	CameraName = device.pluginProps["CameraName"]
+	CameraFile = CameraName.replace(" ", "_")
 	CameraDir = CameraDir = MainDir + "/" + CameraName
-	MosaicImage = SnapshotDir + "/mosaic.jpg"
-	MosaicImageLR = SnapshotDir + "/mosaicLR.jpg"
+	MosaicImage = SnapshotDir + "/" + CameraFile + "_mosaic.jpg"
+	MosaicImageLR = SnapshotDir + "/" + CameraFile + "_mosaicLR.jpg"
+	sortedList = getSortedDir(CameraDir, "img", 0, 30)
 	
-	sortedList = getSortedDir(CameraDir, "img", 2, 8)
-	
-	img1 = Image.open(sortedList[0])
-	img2 = Image.open(sortedList[1])
-	img3 = Image.open(sortedList[2])
-	img4 = Image.open(sortedList[3])
-	img5 = Image.open(sortedList[4])
-	img6 = Image.open(sortedList[5])
+	img1 = Image.open(sortedList[10])
+	img2 = Image.open(sortedList[11])
+	img3 = Image.open(sortedList[12])
+	img4 = Image.open(sortedList[13])
+	img5 = Image.open(sortedList[14])
+	img6 = Image.open(sortedList[15])
 	
 	#Create mosaic back ground
 	mosaic_size = img1.size
@@ -393,93 +769,10 @@ def GetMosaic(device):
 	mosaic_img.paste(img6, (mosaic_size[0]/2,(mosaic_size[1]/3)*2))
 
 	#save mosaic
-	mosaic_img.save(MosaicImage,optimize=True,quality=75)
-	mosaic_img.save(MosaicImageLR,optimize=True,quality=25)
-
-
-def MasterImage(sub, thread):
-	##################Display a master image of different cameras
-	
-	DeviceID = int(indigo.activePlugin.pluginPrefs["MasterCamera"])
-	PlayRecording = indigo.activePlugin.pluginPrefs["PlayRecording"]
-	RecordingFrame = indigo.activePlugin.pluginPrefs["RecordingFrame"]
-	RecordingFlag = indigo.activePlugin.pluginPrefs["RecordingFlag"]  
-	MasterCameraDevice = indigo.devices[DeviceID]
-	MasterCameraName = MasterCameraDevice.pluginProps["CameraName"]
-	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
-	MasterCameraDir = MainDir + "/" + MasterCameraName
-	MasterRecording = MainDir + "/" + PlayRecording
-	MasterImage1 = MainDir + "/Master1.jpg"
-	MasterImage2 = MainDir + "/Master2.jpg"
-	MasterImage3 = MainDir + "/Master3.jpg"
-	MasterImage4 = MainDir + "/Master4.jpg"
-	ToggleResolution = indigo.activePlugin.pluginPrefs["LowRes"]
-	CurrentImage = MasterCameraDir + "/CurrentImage.jpg"
-	CurrentImageLR = MasterCameraDir + "/CurrentImageLR.jpg"
-	
-	if ToggleResolution == "true":
-		CurrentImageLR = MasterCameraDir + "/CurrentImageLR.jpg"
-	else:
-		CurrentImageLR = MasterCameraDir + "/CurrentImage.jpg"
-
-	sortedList = getSortedDir(MasterRecording, "img", 0, 21)
-	
-	if sortedList == "False":
-		RecordingImage = MainDir + "/" + "NoRecording.jpg"
-	else:
-		RecordingImage = sortedList[int(RecordingFrame)]
-
-	if str(RecordingFlag) == "1":
-		FileFrom = RecordingImage
-		CurrentImageLR = RecordingImage
-	else:
-		FileFrom = CurrentImage	
-		
-	try:
-		ChangeFile(FileFrom, MasterImage1)
-		ChangeFile(CurrentImage, MasterImage2)
-		ChangeFile(RecordingImage, MasterImage3)
-		ChangeFile(CurrentImageLR, MasterImage4)
-	except Exception as errtxt:
-		indigo.server.log("Master: " + str(errtxt))
-
-def ChangeFile(FromFile, ToFile):
-	##################Change dynamic link
-	LinkCommand = "ln -s -f \"" + FromFile + "\" \"" + ToFile + "\""
-	proc = subprocess.Popen(LinkCommand, stdout=subprocess.PIPE, shell=True)
-	(output, err) = proc.communicate()
-	
-def RunCarousel(CarouselCamera):
-	##################Run Carousel
-	
-	MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
-	ToggleCarousel = indigo.activePlugin.pluginPrefs["CarouselOn"]
-	CarouselTimer = indigo.activePlugin.pluginPrefs["CarouselTimer"]
-	CarouselCameraPause = indigo.activePlugin.pluginPrefs["CarouselCameraPause"]
-	
-	CarouselTimer = int(CarouselTimer) + 1
-	
-	#Check for paused Carousel Camera
-	if CarouselCameraPause == "false":
-		if int(CarouselTimer) >= 4 and ToggleCarousel == "true":
-			CarouselTimer = 0
-			CarouselCount = int(indigo.activePlugin.pluginPrefs["CarouselCount"])
-			indigo.activePlugin.pluginPrefs["CarouselCount"] = CarouselCount + 1
-	else:
-		CarouselTimer = 0
-		
-	indigo.activePlugin.pluginPrefs["CarouselTimer"] = str(CarouselTimer)
-	CurrentImage = MainDir + "/" + CarouselCamera + "/CurrentImage.jpg"
-	CurrentImageLR = MainDir + "/" + CarouselCamera + "/CurrentImageLR.jpg"
-	CarouselImage = MainDir + "/CarouselImage.jpg"
-	CarouselImageLR = MainDir + "/CarouselImageLR.jpg"	
+	mosaic_img.save(MosaicImage,optimize=True,quality=30)
+	mosaic_img.thumbnail((200,200))
+	mosaic_img.save(MosaicImageLR,optimize=True,quality=30)
 			
-	try:
-		ChangeFile (CurrentImage, CarouselImage)
-		ChangeFile (CurrentImageLR, CarouselImageLR)
-	except:
-		indigo.server.log("Carousel Image: " + str(CarouselCount))
-
 ################################################################################
 #
 # Start up Procedures
@@ -489,20 +782,13 @@ def RunCarousel(CarouselCamera):
 class Plugin(indigo.PluginBase):
 	def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
 		indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
-		self.updater = GitHubPluginUpdater(self)
-
-		if "LowRes" not in pluginPrefs:
-			pluginPrefs["LowRes"] = "false"
-		if "RecordingPause" not in pluginPrefs:
-			pluginPrefs["RecordingPause"] = "true"
-		if "CarouselCameraPause" not in pluginPrefs:
-			pluginPrefs["CarouselCameraPause"] = "false"		
+		self.updater = GitHubPluginUpdater(self)		
 
 	def __del__(self):
 		indigo.PluginBase.__del__(self)
 
 	def startup(self):
-		self.debugLog(u"startup called")
+		indigo.server.log("-----  startup called  ------")
 		indigo.server.log("Checking for update")
 		
 		ActiveVersion = str(self.pluginVersion)
@@ -516,35 +802,23 @@ class Plugin(indigo.PluginBase):
 		
 		SnapshotDir = indigo.activePlugin.pluginPrefs["SnapshotDirectory"]
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
-
-		indigo.activePlugin.pluginPrefs["MasterThreads"] = "0"
-		indigo.activePlugin.pluginPrefs["CarouselCount"] = "0"		
-		indigo.activePlugin.pluginPrefs["CarouselTimer"] = "0"		
-		
-		#clear Thread Count
-		for sdevice in indigo.devices.iter("self"):
-			CameraName = sdevice.pluginProps["CameraName"]
-			localPropsCopy = sdevice.pluginProps
-			localPropsCopy["ImageThreads"] = "0"
-			localPropsCopy["MotionThreads"] = "0"
-			sdevice.replacePluginPropsOnServer(localPropsCopy)
 		
 		#Main dir test
 		MainDirTest = os.path.isdir(MainDir)
 		if MainDirTest is False:
-			indigo.server.log("Home image directory not found.")
+			indigo.server.log("Home image directory not found.  Creating...")
 			os.makedirs(MainDir)
 			indigo.server.log("Created: " + MainDir)
 			
 		#Snapshot Test
 		SnapshotDirTest = os.path.isdir(SnapshotDir)
 		if SnapshotDirTest is False:
-			indigo.server.log("Snapshot image directory not found.")
+			indigo.server.log("Snapshot image directory not found. Creating...")
 			os.makedirs(SnapshotDir)
 			indigo.server.log("Created: " + SnapshotDir)
 
 	def shutdown(self):
-		self.debugLog(u"shutdown called")
+		indigo.server.log(u"shutdown called")
 
 	def validatePrefsConfigUi(self, valuesDict):
 	
@@ -554,14 +828,14 @@ class Plugin(indigo.PluginBase):
 		#Main Dir Test
 		MainDirTest = os.path.isdir(MainDir)		
 		if MainDirTest is False:
-			indigo.server.log("Home image directory not found.")
+			indigo.server.log("Home image directory not found. Creating...")
 			os.makedirs(MainDir)
 			indigo.server.log("Created: " + MainDir)
 
 		#archive dir test
 		ArchiveDirTest = os.path.isdir(ArchiveDir)			
 		if ArchiveDirTest is False:
-			indigo.server.log("Archive image directory not found.")
+			indigo.server.log("Archive image directory not found. Creating...")
 			os.makedirs(ArchiveDir)
 			indigo.server.log("Created: " + ArchiveDir)
 		return True
@@ -571,7 +845,7 @@ class Plugin(indigo.PluginBase):
 
 	def deviceStartComm(self, dev):
 		CameraName = dev.pluginProps["CameraName"]
-		url = dev.pluginProps["CameraAddress"]		
+		#url = dev.pluginProps["CameraAddress"]	<remove>	
 		dev.stateListOrDisplayStateIdChanged()
 	
 		localPropsCopy = dev.pluginProps
@@ -582,9 +856,8 @@ class Plugin(indigo.PluginBase):
 
 		CameraDirTest = os.path.isdir(CameraDir)
 		if CameraDirTest is False:
-			indigo.server.log("Camera image directory not found.")
+			indigo.server.log("Camera image directory not found. Creating...")
 			os.makedirs(CameraDir)
-			indigo.server.log("Created: " + CameraDir)
 			
 		NotActiveImageTest = os.path.isfile(NotActiveImage)
 		if NotActiveImageTest is False:
@@ -596,7 +869,7 @@ class Plugin(indigo.PluginBase):
 			center = 100 - ((len("Not Active")*12)/2)
 			draw.text((center, 100),"Not Active",(255,255,255),font=font)
 			img.save(NotActiveImage)
-			indigo.server.log("Created Not Active Image")	
+			indigo.server.log("Not Active Image not found.  Creating...")	
 	
 		if dev.states["CameraState"] != "Off":
 			dev.updateStateOnServer("CameraState", value="On")	
@@ -612,151 +885,77 @@ class Plugin(indigo.PluginBase):
 ################################################################################
 
 	def runConcurrentThread(self):
+		CarouselCount = 0
+		CarouselTimer = 0
+		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
+		
+		DebugMode = indigo.activePlugin.pluginPrefs["Debug"]
+		self.debug = DebugMode
+		
 		try:
-			while True:
-				self.sleep(1)
+			for device in indigo.devices.iter("self"):
+				CameraName = device.pluginProps["CameraName"]
+				CameraState = device.states["CameraState"]
+				tw = threading.Thread(name=CameraName, target=CameraThread, args=(device.id, MainDir))
+				tw.start()
+				indigo.server.log("Thread started for " + CameraName + " camera. id: " + str(tw.ident))
 
-				#Debug Mode
-				DebugMode = indigo.activePlugin.pluginPrefs["Debug"]
-				self.debug = DebugMode	
-				self.debugLog("Starting main loop")
-				
+			#Debug Mode	
+			indigo.server.log("Starting main loop")	
+					
+			while True:
+
+				self.sleep(1)
+		
 				################################################################################
-				#
 				# Setup
-				#
 				################################################################################
-				
 				MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 				RecordingCount = int(indigo.activePlugin.pluginPrefs["RecordingCount"])
 				RecordingPause = indigo.activePlugin.pluginPrefs["RecordingPause"]
-				
-				if RecordingPause == "False":
-					#set record loop frame
-					if RecordingCount > 20:
-						RecordingCount = 0
-					else:
-						RecordingCount = RecordingCount + 1
-					
-				RecordingFrame = str(RecordingCount)
-				#"00000" + 
-				#RecordingFrame = RecordingFrame[-5:] + ".jpg"
-				indigo.activePlugin.pluginPrefs["RecordingFrame"] = RecordingFrame
-				indigo.activePlugin.pluginPrefs["RecordingCount"] = RecordingCount		
-										
-				#Create camera device list alist = all actlist = active
-				alist = []
-				actlist = []
-				for sdevice in indigo.devices.iter("self"):
-					alist.append(sdevice.pluginProps["CameraName"] )
-					CameraState = sdevice.states["CameraState"]
-					if CameraState == "On":
-						actlist.append(sdevice.pluginProps["CameraName"] )
-				
+				CarouselCameraPause = str(indigo.activePlugin.pluginPrefs["CarouselCameraPause"])
+
 				################################################################################
-				#
+				# Recording setup
+				################################################################################
+				try:	
+					if RecordingPause == "False":
+						#set record loop frame
+						if RecordingCount > 29:
+							RecordingCount = 0
+						else:
+							RecordingCount = RecordingCount + 1
+		
+					RecordingFrame = str(RecordingCount)
+					indigo.activePlugin.pluginPrefs["RecordingFrame"] = RecordingFrame
+					indigo.activePlugin.pluginPrefs["RecordingCount"] = RecordingCount
+				except Exception as errtxt:
+						indigo.server.log("Record Setup "  + str(errtxt)) 		
+		
+				################################################################################
 				# Create image carousel
-				#
 				################################################################################
-				self.debugLog("     Starting Carousel")
-				CarouselCount = int(indigo.activePlugin.pluginPrefs["CarouselCount"])
-				MaxCarouselCount = len(actlist)
-				
-				#check to see if carousel camera is paused  if it is skip over this
-				if CarouselCount >= MaxCarouselCount-1:
-					indigo.activePlugin.pluginPrefs["CarouselCount"] = 0
-				
-				##Loop through and find offline carousel cameras
-				
+				#indigo.server.log("Carousel Paused: " + CarouselCameraPause)
 				try:
-					CarouselCamera = actlist[CarouselCount]
-					RunCarousel(CarouselCamera)
-				except:
-					self.debugLog("     Unable to run Carousel")
-				
+					CarouselCount = int(indigo.activePlugin.pluginPrefs["CarouselCount"])		
+					if CarouselCameraPause == "false":
+						#indigo.server.log("Starting Carousel")
+						CarouselTimer = RunCarousel(MainDir, CarouselCount, CarouselTimer)
+				except Exception as errtxt:
+						indigo.server.log("Carousel: "  + str(errtxt))
+		
 				################################################################################
-				#
 				# Set Master Image
-				#
 				################################################################################
-				self.debugLog("     Starting Master Image")
+				#indigo.server.log("Starting Master Image")
 				try:
 					MasterID = int(indigo.activePlugin.pluginPrefs["MasterCamera"])
+					#indigo.server.log(str(MasterID))
 					if MasterID != "":
-						MasterImage("Master", "Thread")
-				except:
-					self.debugLog("     Unable to run Master Image")
-				
-				################################################################################
-				#
-				# Start device loop
-				#
-				################################################################################
-				
-				self.debugLog("     Starting Device Loop")					
-				for device in indigo.devices.iter("self"):
-					self.debugLog("     Starting Device Loop for:" + device.pluginProps["CameraName"])
-					CameraName = device.pluginProps["CameraName"]				
-					CameraState = device.states["CameraState"]
-					CameraTimeout = int(device.pluginProps["CameraTimeout"])
-					MotionThreadSeconds = int(device.pluginProps["MotionThreadSeconds"])
-					MotionOff = device.pluginProps["MotionOff"]
-					localPropsCopy = device.pluginProps
-					CameraDir = CameraDir = MainDir + "/" + CameraName
-					NoImage = CameraDir + "/NotActive.jpg"
-					CurrentImage = CameraDir + "/CurrentImage.jpg"
-					CurrentImageLR = CameraDir + "/CurrentImageLR.jpg"
-					imagedate = time.strftime("%m.%d.%Y.%H.%M.%S")
-					NewImage = CameraDir + "/img_" + imagedate + ".jpg"	
-
-					self.debugLog("          Set State Timers")					
-					#Set State Timers
-					if device.states["RecordSeconds"] > 3600:
-						RecordSeconds = 0
-						device.updateStateOnServer("RecordSeconds", value=0)
-					else:
-						RecordSeconds = device.states["RecordSeconds"] + 1
-						device.updateStateOnServer("RecordSeconds", value=RecordSeconds)
-
-					self.debugLog("          Get Camera Image")						
-					if str(CameraState) != "Off":
+						MasterImage()
+				except Exception as errtxt:
+					indigo.server.log("Unable to run Master Image: " + str(MasterID))	
 						
-						#Check for active thread
-						ImageThread = False
-						for t in threading.enumerate():
-							if str(t.getName()) == CameraName:
-								ImageThread = True
-
-						#Get Images
-						if not ImageThread:
-							w = threading.Thread(name=CameraName, target=GetImage, args=(device,))
-							w.start()
-						else:
-							OfflineSeconds = int(device.states["OfflineSeconds"])
-							OfflineSeconds += 1
-							device.updateStateOnServer("OfflineSeconds", value=str(OfflineSeconds))
-						
-						OfflineSeconds = int(device.states["OfflineSeconds"])	
-							
-						if OfflineSeconds >= CameraTimeout:
-							device.updateStateOnServer("OfflineSeconds", value="0")
-							device.updateStateOnServer("CameraState", value="Unavailable")
-							shutil.copy(NoImage, CurrentImage)
-							shutil.copy(NoImage, CurrentImageLR)
-							shutil.copy(NoImage, NewImage)
-
-						MotionThread = False
-						for t in threading.enumerate():
-							if str(t.getName()) == CameraName + "-motion":
-								ImageThread = True
-
-						self.debugLog("          Check Motion")						
-						#Check Motion
-						if str(MotionOff) == "False":
-							if not MotionThread:
-								w = threading.Thread(name=CameraName + "-motion", target=MotionCheck, args=(device,))
-								w.start()
-								
 		except self.StopThread:
 			indigo.server.log("thread stopped")
 			pass
@@ -791,12 +990,14 @@ class Plugin(indigo.PluginBase):
 ################################################################################
 	
 	def StopCamera(self, pluginAction):
+		## add code to stop thread
 		CameraDevice = indigo.devices[pluginAction.deviceId]
 		CameraName = CameraDevice.pluginProps["CameraName"]
 		indigo.server.log("Stop Camera action called:" + CameraName)
 		CameraDevice.updateStateOnServer("CameraState", value="Off")
 		
 	def StartCamera(self, pluginAction):
+		## add code to start thread
 		CameraDevice = indigo.devices[pluginAction.deviceId]
 		CameraName = CameraDevice.pluginProps["CameraName"]
 		indigo.server.log("Start Camera action called:" + CameraName)
@@ -804,6 +1005,7 @@ class Plugin(indigo.PluginBase):
 		CameraDevice.updateStateOnServer("OfflineSeconds", value="On")
 		
 	def ToggleCamera(self, pluginAction):
+		## add code to start/stop thread
 		CameraDevice = indigo.devices[pluginAction.deviceId]
 		CameraName = CameraDevice.pluginProps["CameraName"]
 		CameraState = CameraDevice.states["CameraState"]
@@ -820,53 +1022,99 @@ class Plugin(indigo.PluginBase):
 	def MasterCamera(self, pluginAction):
 		indigo.activePlugin.pluginPrefs["MasterCamera"] = pluginAction.deviceId
 		indigo.activePlugin.pluginPrefs["RecordingFlag"] = 0
-		MasterImage("Master", "Thread")
-
-	def RecordCamera(self, pluginAction):
-		
-		time.sleep(2)
-	
 		CameraDevice = indigo.devices[pluginAction.deviceId]
 		CameraName = CameraDevice.pluginProps["CameraName"]
-		CameraDevice.updateStateOnServer("RecordSeconds", value=0)
-		SavedDir = time.strftime("%m %d %Y %H.%M.%S")
-		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
-		SourceDir = MainDir + "/" + CameraName
-		RecordingDir = MainDir + "/" + CameraName + "/" + SavedDir
-		filecounter = 0
 		
-		os.makedirs(RecordingDir)
-		src_files = getSortedDir(SourceDir, "img", 0, 21)
-		for file_name in src_files:
-			filecounter = filecounter + 1
-			try:
-				shutil.copy(file_name, RecordingDir)
-			except Exception as errtxt:
-				self.debugLog(str(errtxt))
+		try:
+			MasterImage()
+		except Exception as errtxt:
+			indigo.server.log(CameraName + " Master: " + str(errtxt))
+
+	def MotionOn(self, pluginAction):
+		CameraDevice = indigo.devices[pluginAction.deviceId]
+		CameraName = CameraDevice.pluginProps["CameraName"]
+		Motion = CameraDevice.pluginProps["Motion"]
+		props = CameraDevice.pluginProps
+		indigo.server.log("Start motion action called:" + CameraName)
+		props['Motion'] = True
+		CameraDevice.replacePluginPropsOnServer(props)
 		
-		sortedList = getSortedDir(SourceDir, "img", 3, 4)
-		CurrentImage = sortedList[0]
+	def MotionOff(self, pluginAction):
+		CameraDevice = indigo.devices[pluginAction.deviceId]
+		CameraName = CameraDevice.pluginProps["CameraName"]
+		Motion = CameraDevice.pluginProps["Motion"]
+		props = CameraDevice.pluginProps
+		indigo.server.log("Stop motion action called:" + CameraName)
+		props['Motion'] = False
+		CameraDevice.replacePluginPropsOnServer(props)
 		
-		for num in reversed(range(2, 10)):
-			LeadingNum = "0" + str(num)
-			Current = LeadingNum[-2:]
-			LeadingPrev = "0" + str(num - 1)
-			Previous = LeadingPrev[-2:]
-			PrevValue = CameraDevice.states["Recording" + Previous]
-			PrevNewValue = CameraDevice.states["NewRecording" + Previous]
-			CameraDevice.updateStateOnServer("Recording" + Current, value=PrevValue)
-			CameraDevice.updateStateOnServer("NewRecording" + Current, value=PrevNewValue)
-			ThumbTo = SourceDir +"/thumb" + Current + ".jpg"
-			ThumbFrom = SourceDir +"/thumb" + Previous + ".jpg"
-			try:
-				os.rename(ThumbFrom, ThumbTo)	
-			except Exception as errtxt:
-				self.debugLog(str(errtxt))
+	def ToggleMotion(self, pluginAction):
+		CameraDevice = indigo.devices[pluginAction.deviceId]
+		CameraName = CameraDevice.pluginProps["CameraName"]
+		Motion = CameraDevice.pluginProps["Motion"]
+		props = CameraDevice.pluginProps
+
+		try:
+			if Motion == True:
+				indigo.server.log("Stop motion action called:" + CameraName)
+				props['Motion'] = False
+				CameraDevice.replacePluginPropsOnServer(props)
+			else:
+				indigo.server.log("Start motion action called:" + CameraName)
+				props['Motion'] = True
+				CameraDevice.replacePluginPropsOnServer(props)
+		except Exception as errtxt:
+			indigo.server.log("Toggle Motion: " + str(errtxt))
+
+	def RecordCamera(self, pluginAction):
+	
+		try:
+			CameraDevice = indigo.devices[pluginAction.deviceId]
+			CameraName = CameraDevice.pluginProps["CameraName"]
+			CameraDevice.updateStateOnServer("RecordSeconds", value=0)
+			SavedDir = time.strftime("%m %d %Y %H.%M.%S")
+			MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
+			SourceDir = MainDir + "/" + CameraName
+			RecordingDir = MainDir + "/" + CameraName + "/" + SavedDir
+			filecounter = 0
+		
+			time.sleep(15)
+		
+			os.makedirs(RecordingDir)
+			src_files = getSortedDir(SourceDir, "img", 0, 30)
+			for file_name in src_files:
+				filecounter = filecounter + 1
+				try:
+					shutil.copy(file_name, RecordingDir)
+				except Exception as errtxt:
+					indigo.server.log(str(errtxt))
+		
+			sortedList = getSortedDir(SourceDir, "img", 3, 4)
+			CurrentImage = sortedList[0]
+		
+			for num in reversed(range(2, 10)):
+				LeadingNum = "0" + str(num)
+				Current = LeadingNum[-2:]
+				LeadingPrev = "0" + str(num - 1)
+				Previous = LeadingPrev[-2:]
+				PrevValue = CameraDevice.states["Recording" + Previous]
+				PrevNewValue = CameraDevice.states["NewRecording" + Previous]
+				CameraDevice.updateStateOnServer("Recording" + Current, value=PrevValue)
+				CameraDevice.updateStateOnServer("NewRecording" + Current, value=PrevNewValue)
+				ThumbTo = SourceDir +"/thumb" + Current + ".jpg"
+				ThumbFrom = SourceDir +"/thumb" + Previous + ".jpg"
+			
+				try:
+					os.rename(ThumbFrom, ThumbTo)	
+				except Exception as errtxt:
+					indigo.server.log("Thumb: " + str(errtxt))
 				
-		CurrentThumb = SourceDir + "/Thumb01.jpg"
-		shutil.copy (CurrentImage, CurrentThumb)
-		CameraDevice.updateStateOnServer("Recording01", value=SavedDir)
-		CameraDevice.updateStateOnServer("NewRecording01", value="New")
+			CurrentThumb = SourceDir + "/Thumb01.jpg"
+			shutil.copy (CurrentImage, CurrentThumb)
+			CameraDevice.updateStateOnServer("Recording01", value=SavedDir)
+			CameraDevice.updateStateOnServer("NewRecording01", value="New")
+		except Exception as errtxt:
+			indigo.server.log(CameraName + " Record: " + str(errtxt))
 		
 	def ToggleCarousel(self, pluginAction):
 		ToggleCarousel = indigo.activePlugin.pluginPrefs["CarouselOn"]
@@ -881,6 +1129,12 @@ class Plugin(indigo.PluginBase):
 			indigo.activePlugin.pluginPrefs["CarouselCameraPause"] = "false"
 		else:
 			indigo.activePlugin.pluginPrefs["CarouselCameraPause"] = "true"
+			
+	def NextCarouselCamera(self, pluginAction):
+		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
+		CarouselCount = int(indigo.activePlugin.pluginPrefs["CarouselCount"])
+		indigo.activePlugin.pluginPrefs["CarouselCount"] = CarouselCount + 1
+		RunCarousel(MainDir, CarouselCount, 5)
 
 	def ToggleResolution(self, pluginAction):
 		ToggleResolution = indigo.activePlugin.pluginPrefs["LowRes"]
@@ -889,34 +1143,66 @@ class Plugin(indigo.PluginBase):
 		else:
 			indigo.activePlugin.pluginPrefs["LowRes"] = "true"
 
-	def NextCarouselCamera(self, pluginAction):
-		indigo.server.log("Car Next")
-		CarouselCount = int(indigo.activePlugin.pluginPrefs["CarouselCount"])
-		indigo.activePlugin.pluginPrefs["CarouselCount"] = CarouselCount + 1
-
 	def PlayRecording(self, pluginAction):
-		CameraDevice = indigo.devices[pluginAction.deviceId]
-		CameraName = CameraDevice.pluginProps["CameraName"]
-		RecordingID = pluginAction.props["PlaySelect"]
-		Recording = CameraName + "/" + CameraDevice.states["Recording" + RecordingID]
+	
+		try:
+			CameraDevice = indigo.devices[pluginAction.deviceId]
+			CameraName = CameraDevice.pluginProps["CameraName"]
+			RecordingID = pluginAction.props["PlaySelect"]
+			Recording = CameraName + "/" + CameraDevice.states["Recording" + RecordingID]
+			indigo.activePlugin.pluginPrefs["RecordingPause"] = "False"
 		
-		indigo.activePlugin.pluginPrefs["RecordingFrame"] = "0"
-		indigo.activePlugin.pluginPrefs["RecordingCount"] = "0"
+			for device in indigo.devices.iter("self"):
+					device.updateStateOnServer("Playing", value="Play")
 		
-		indigo.activePlugin.pluginPrefs["RecordingFlag"] = 1
-		indigo.activePlugin.pluginPrefs["PlayRecording"] = Recording
-		indigo.server.log("Play recording action called:" + CameraName)
+			indigo.activePlugin.pluginPrefs["RecordingFrame"] = "0"
+			indigo.activePlugin.pluginPrefs["RecordingCount"] = "0"
 		
-		CameraDevice.updateStateOnServer("NewRecording" + RecordingID, value="")
+			indigo.activePlugin.pluginPrefs["RecordingFlag"] = 1
+			indigo.activePlugin.pluginPrefs["PlayRecording"] = Recording
+			indigo.server.log("Play recording action called:" + CameraName)
+		
+			CameraDevice.updateStateOnServer("NewRecording" + RecordingID, value="")
+		except Exception as errtxt:
+			indigo.server.log(CameraName + " Play: " + str(errtxt))
 		
 	def Snapshot(self, pluginAction):
-		
 		device = indigo.devices[pluginAction.deviceId]
+		CameraName = device.pluginProps["CameraName"]
 		SnapshotDir = indigo.activePlugin.pluginPrefs["SnapshotDirectory"]
 		SnapshotImage = SnapshotDir + "/Snap001.jpg"
 		Quality = int(pluginAction.props["Quality"])
+		CameraAddress = "http://" + device.pluginProps["CameraAddress"]
+		CameraUser = device.pluginProps["uname"]
+		CameraPwd = device.pluginProps["pwd"]
+		Digest = device.pluginProps["Digest"]
+		Rotation = device.pluginProps["CameraRotation"]
+		Brightness = device.pluginProps["Brightness"]
+		Contrast = device.pluginProps["Contrast"]
+		Sharpness = device.pluginProps["Sharpness"]
+		BorderWidth = int(device.pluginProps["BorderWidth"])*2
+		BorderColor = device.pluginProps["BorderColor"]
+		ImageWidth = 640
+		ImageHeight = 480
 		
-		final_img = GetSnapshot(device)
+		nowtime = datetime.datetime.now()
+		displaytime = str(nowtime).split(".")[0]
+		labelText = CameraName + " : " + displaytime
+		
+		#indigo.server.log("Capture Image")
+		#indigo.server.log(CameraAddress)
+		img=getURLImage(CameraAddress,CameraUser,CameraPwd, Digest)
+		
+		#indigo.server.log("Set Size")
+		img.thumbnail((ImageWidth, ImageHeight))
+		#indigo.server.log(Brightness +":"+ Contrast +":"+ Sharpness)
+		img=editImage(img, int(Rotation), float(Brightness), float(Contrast), float(Sharpness), False)
+		#indigo.server.log("Add black bars")
+		img=addBorder(img, ImageWidth, ImageHeight, "black")
+		#indigo.server.log("Add Text")		
+		img=addLabel(img, labelText)
+		#indigo.server.log("Add Border")
+		img=addBorder(img, ImageWidth + BorderWidth, ImageHeight + BorderWidth, BorderColor)
 		
 		#save image history
 		for num in reversed(range(1, 5)):
@@ -928,10 +1214,9 @@ class Plugin(indigo.PluginBase):
 				os.rename(fromfile, tofile)	
 
 		try:		
-			#final_img.save(SnapshotImage)
-			final_img.save(SnapshotImage,optimize=True,quality=Quality)
+			img.save(SnapshotImage,optimize=True,quality=Quality)
 		except Exception as errtxt:
-			self.debugLog(str(errtxt))
+			indigo.server.log(str(errtxt))
 	
 	def GIF(self, pluginAction):
 		CameraDevice = indigo.devices[pluginAction.deviceId]
@@ -949,12 +1234,17 @@ class Plugin(indigo.PluginBase):
 		
 	def PauseRecording(self, pluginAction):
 		RecordingPaused = indigo.activePlugin.pluginPrefs["RecordingPause"]
+		PlayState = ""
+		
 		if RecordingPaused == "False":
 			indigo.activePlugin.pluginPrefs["RecordingPause"] = "True"
+			PlayState = "Pause"
 		else:
 			indigo.activePlugin.pluginPrefs["RecordingPause"] = "False"
+			PlayState = "Play"
 		
-		RecordingPaused = indigo.activePlugin.pluginPrefs["RecordingPause"]
+		for device in indigo.devices.iter("self"):
+				device.updateStateOnServer("Playing", value=PlayState)
 		
 	def FrameBackward(self, pluginAction):
 	
@@ -969,7 +1259,6 @@ class Plugin(indigo.PluginBase):
 		indigo.activePlugin.pluginPrefs["RecordingFrame"] = RecordingFrame
 		indigo.activePlugin.pluginPrefs["RecordingCount"] = RecordingCount
 
-		
 	def FrameForward(self, pluginAction):
 			
 		RecordingCount = int(indigo.activePlugin.pluginPrefs["RecordingCount"])
@@ -985,11 +1274,18 @@ class Plugin(indigo.PluginBase):
 		
 	def Mosaic(self, pluginAction):
 		CameraDevice = indigo.devices[pluginAction.deviceId]
-		GetMosaic(CameraDevice)
+		CameraName = CameraDevice.pluginProps["CameraName"]
+		
+		try:
+			GetMosaic(CameraDevice)
+		except Exception as errtxt:
+			indigo.server.log(CameraName + " Mosaic: " + str(errtxt))
 		
 	def CameraCommand(self, pluginAction):
 		ReturnVariable = pluginAction.props["ReturnVariable"]
-		CameraCommandURL = pluginAction.props["CameraCommandURL"]
+		CameraAddress = "http://" + device.pluginProps["CameraAddress"]
+		CameraUser = device.pluginProps["uname"]
+		CameraPwd = device.pluginProps["pwd"]
 		ReturnVariable = ReturnVariable.replace(" ", "_")
 		
 		try:
@@ -999,36 +1295,25 @@ class Plugin(indigo.PluginBase):
 			indigo.variable.create(ReturnVariable)
 			indigo.server.log(ReturnVariable + " created")
 		
-		try:
-			CaptureProtocol = device.pluginProps["CaptureProtocol"]
-		except:
-			CaptureProtocol = "urllib"
-
-		if CaptureProtocol == "urllib2":
-			passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
-			passman.add_password(None, CaptureType + CameraAddress, CameraUser, CameraPwd)
-			auth_handler = urllib2.HTTPBasicAuthHandler(passman)
-			opener = urllib2.build_opener(auth_handler)
-			urllib2.install_opener(opener)
+		#indigo.server.log("start url Command")
+		if digest:
 			try:
-				jpgfile = urllib2.urlopen(CaptureType + CameraAddress,timeout=10)
-				with open(OrigImage,'wb') as output:
-					output.write(jpgfile.read())
-					device.updateStateOnServer("CameraState", value="On")
-					ImageFound = True
+				response = requests.get(CameraAddress, auth=HTTPDigestAuth(CameraUser, CameraPwd), timeout=(1, 3))
+				indigo.variable.updateValue(ReturnVariable, value=str(returnvalue))
 			except:
-				ImageFound = False		
+				indigo.variable.updateValue(ReturnVariable, value="Command Failed")
 		else:
-			returnvalue = urllib.urlretrieve(CameraCommandURL)
-			indigo.variable.updateValue(ReturnVariable, value=str(returnvalue))
-
-		
+			try:
+				response = requests.get(CameraAddress, auth=(CameraUser, CameraPwd), timeout=(1, 3))
+				indigo.variable.updateValue(ReturnVariable, value=str(returnvalue))
+			except:
+				indigo.variable.updateValue(ReturnVariable, value="Command Failed")
+	
 	def DeleteRecording(self, pluginAction):
 		CameraDevice = indigo.devices[pluginAction.deviceId]
 		CameraName = CameraDevice.pluginProps["CameraName"]
 		Months = pluginAction.props["DeleteMonths"]
 		Days = int(Months) * 30
-		#Days = 4
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
 		ArchiveDir = MainDir + "/" + "Archive" + "/" + CameraName
 		
