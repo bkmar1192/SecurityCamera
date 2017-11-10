@@ -342,6 +342,11 @@
 				<TriggerLabel>New Recording 10</TriggerLabel>
 				<ControlPageLabel>New Recording 10</ControlPageLabel>
 			</State>
+			<State id="LogMessage">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Log Message</TriggerLabel>
+				<ControlPageLabel>Log Message</ControlPageLabel>
+			</State>
 			
 		</States>
 	</Device>
