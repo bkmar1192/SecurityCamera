@@ -13,7 +13,7 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.perceptiveautomation.indigoplugin.securitycamera</string>
 	<key>CFBundleVersion</key>
-	<string>2.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -21,5 +21,12 @@
 			<string>http://forums.indigodomo.com/viewforum.php?f=239</string>
 		</dict>
 	</array>
+	<key>GithubInfo</key>
+	    <dict>
+	        <key>GithubRepo</key>
+	        <string>SecurityCamera</string>
+	        <key>GithubUser</key>
+	        <string>bkmar1192</string>
+	    </dict>
 </dict>
 </plist>

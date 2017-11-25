@@ -770,6 +770,8 @@ def GetMosaic(device):
 	mosaic_img.save(MosaicImage,optimize=True,quality=30)
 	mosaic_img.thumbnail((200,200))
 	mosaic_img.save(MosaicImageLR,optimize=True,quality=30)
+
+	indigo.server.log("mosaic done")
 			
 ################################################################################
 #
@@ -1078,7 +1080,7 @@ class Plugin(indigo.PluginBase):
 			RecordingDir = MainDir + "/" + CameraName + "/" + SavedDir
 			filecounter = 0
 		
-			time.sleep(10)
+			#time.sleep(2)
 		
 			os.makedirs(RecordingDir)
 			src_files = getSortedDir(SourceDir, "img", 0, 30)
