@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PluginVersion</key>
+	<string>2.0</string>
+	<key>ServerApiVersion</key>
+	<string>2.0</string>
+	<key>IwsApiVersion</key>
+	<string>1.0.0</string>
+	<key>CFBundleDisplayName</key>
+	<string>Security Camera</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.perceptiveautomation.indigoplugin.securitycamera</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.1</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>http://forums.indigodomo.com/viewforum.php?f=239</string>
+		</dict>
+	</array>
+	<key>GithubInfo</key>
+	    <dict>
+	        <key>GithubRepo</key>
+	        <string>SecurityCamera</string>
+	        <key>GithubUser</key>
+	        <string>bkmar1192</string>
+	    </dict>
+</dict>
+</plist>
