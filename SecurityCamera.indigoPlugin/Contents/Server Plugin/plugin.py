@@ -1080,7 +1080,7 @@ class Plugin(indigo.PluginBase):
 			RecordingDir = MainDir + "/" + CameraName + "/" + SavedDir
 			filecounter = 0
 		
-			#time.sleep(2)
+			time.sleep(20)
 		
 			os.makedirs(RecordingDir)
 			src_files = getSortedDir(SourceDir, "img", 0, 30)
