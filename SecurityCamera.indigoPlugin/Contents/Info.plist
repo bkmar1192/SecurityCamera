@@ -11,7 +11,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>Security Camera</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.perceptiveautomation.indigoplugin.securitycamera</string>
+	<string>com.bertmartin.securitycamera</string>
 	<key>CFBundleVersion</key>
 	<string>1.0.1</string>
 	<key>CFBundleURLTypes</key>
