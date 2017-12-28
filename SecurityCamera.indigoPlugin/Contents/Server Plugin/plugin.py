@@ -875,7 +875,7 @@ class Plugin(indigo.PluginBase):
 	
 		localPropsCopy = dev.pluginProps
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
-		IMDir = indigo.activePlugin.pluginPrefs["IMDirectory"]
+		#IMDir = indigo.activePlugin.pluginPrefs["IMDirectory"]
 		CameraDir = MainDir + "/" + CameraName
 		NotActiveImage = CameraDir + "/NotActive.jpg"
 
