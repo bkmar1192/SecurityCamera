@@ -217,8 +217,6 @@ def NewMotionCheck(imgA, imgB, CameraDir):
 	maxheight = max(listheight)
 	maxwidth = max(listwidth)
 	maxportion = max(listportion)
-	#indigo.server.log("mark 2")	
-	#indigo.server.log("exit new motion")
 			
 	return {'img':imgB, 'MaxArea':maxarea, 'MaxHeight':maxheight, 'MaxWidth':maxwidth, 'MaxPortion':maxportion, \
 	'MotionDetected':MotionDetected, 'vcount':vcount, 'scount':scount, 'hcount':hcount, \
@@ -493,15 +491,27 @@ def CameraThread(deviceID, MainDir):
 					except Exception as errtxt:
 						indigo.server.log(CameraName + " edit image: " + str(errtxt))
 
-					if Motion == True:			
+					if Motion == True:
+						MaxArea = 0
+						MaxHeight = 0
+						MaxWidth = 0
+						MaxPortion = 0
+						vcount = 0
+						scount = 0
+						hcount = 0
+						smcount = 0
+						mcount = 0
+						lcount = 0
+						shapecount = ("v" + str(vcount) + ":s" + str(scount) + ":h" + str(hcount))
+						sizecount = ("s" + str(smcount) + ":m" + str(mcount) + ":l" + str(lcount))
 						if len(sortedList) > 5:
 							try:
 								motionimage = Image.open(sortedList[0])
 								MotionResults = NewMotionCheck(motionimage, img, CameraDir)
 							except Exception as errtxt:
 								indigo.server.log(CameraName + "Get motion: " + str(errtxt))
-						
-							try:											
+
+							try:
 								MaxArea = "%.0f" % MotionResults['MaxArea']
 								MaxHeight = "%.0f" % MotionResults['MaxHeight']
 								MaxWidth = "%.0f" % MotionResults['MaxWidth']
@@ -516,7 +526,11 @@ def CameraThread(deviceID, MainDir):
 								sizecount = ("s" + str(smcount) + ":m" + str(mcount) + ":l" + str(lcount))
 								MotionDetected = MotionResults['MotionDetected']
 							except Exception as errtxt:
-								indigo.server.log(CameraName + " Get motion states: " + str(errtxt))											
+								indigo.server.log(CameraName + " Get motion states: " + str(errtxt))
+								shapecount = ("v" + str(vcount) + ":s" + str(scount) + ":h" + str(hcount))
+								sizecount = ("s" + str(smcount) + ":m" + str(mcount) + ":l" + str(lcount))
+								MotionDetected = MotionResults['MotionDetected']
+
 						try:
 							if MotionDetected:
 								img = MotionResults['img']
@@ -565,7 +579,6 @@ def CameraThread(deviceID, MainDir):
 
 					img.save(NewImage,optimize=True,quality=ImageQuality)
 
-					#indigo.server.log("Move Files")
 					try:	
 						if os.path.exists(TempImage):
 							os.remove(TempImage)						
@@ -573,14 +586,14 @@ def CameraThread(deviceID, MainDir):
 					except Exception as errtxt:
 						indigo.server.log(CameraName + " change SymLink: " + str(errtxt))
 					
-					#indigo.server.log("Rename file")					
+					#indigo.server.log("Rename file")
 					try:
 						time.sleep(.1)
 						os.rename(TempImage, CurrentImage)
 					except Exception as errtxt:
 						indigo.server.log(CameraName + " rename image: " + str(errtxt))
 
-					#indigo.server.log("Thumbnails")				
+					#indigo.server.log("Thumbnails")
 					try:
 						imgTH = img
 						imgTH.thumbnail((250,250))
@@ -588,7 +601,7 @@ def CameraThread(deviceID, MainDir):
 					except Exception as errtxt:
 						indigo.server.log(CameraName + " Thumbnails: " + str(errtxt))
 
-					#indigo.server.log("Image Cleanup")				
+					#indigo.server.log("Image Cleanup")
 					try:			
 						if len(sortedList) > 30:
 							for item in range(30,len(sortedList)):
@@ -673,21 +686,33 @@ def MasterImage():
 		if os.path.exists(MasterImage1):
 			os.remove(MasterImage1)
 		os.symlink(FileFrom, MasterImage1)		
-		
+	except Exception as errtxt:
+		indigo.server.log("Master 1: " + str(errtxt))
+
+	try:
 		if os.path.exists(MasterImage2):
 			os.remove(MasterImage2)
 		os.symlink(CurrentImage, MasterImage2)	
-		
+	except Exception as errtxt:
+		indigo.server.log("Master 2: " + str(errtxt))
+
+	try:
+		os.remove(MasterImage3)
 		if os.path.exists(MasterImage3):
 			os.remove(MasterImage3)
 		os.symlink(RecordingImage, MasterImage3)	
-		
+	except Exception as errtxt:
+		indigo.server.log("Master 3: " + str(errtxt))
+
+	try:
 		if os.path.exists(MasterImage4):
 			os.remove(MasterImage4)
 		os.symlink(CurrentImageLR, MasterImage4)
 
 	except Exception as errtxt:
-		indigo.server.log("Master: " + str(errtxt))
+		indigo.server.log("Master 4: " + str(errtxt))
+
+
 
 def RunCarousel(MainDir, CarouselCount, CarouselTimer):
 
@@ -798,7 +823,7 @@ class Plugin(indigo.PluginBase):
 			indigo.server.log("Running the current version of Security Camera")
 		else:
 			indigo.server.log("The current version of Security Camera is " + str(CurrentVersion) + " and the running version " + str(ActiveVersion) + ".")
-			indigo.server.log("See https://github.com/bkmar1192/SecurityCamera/blob/master/Security%20Camera%20Manual.pdf for change details.")
+			indigo.server.log("WARNING:  Upgrading to this version will require recreating all existing cameras.")
 		
 		SnapshotDir = indigo.activePlugin.pluginPrefs["SnapshotDirectory"]
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
@@ -896,6 +921,7 @@ class Plugin(indigo.PluginBase):
 			for device in indigo.devices.iter("self"):
 				CameraName = device.pluginProps["CameraName"]
 				CameraState = device.states["CameraState"]
+
 				tw = threading.Thread(name=CameraName, target=CameraThread, args=(device.id, MainDir))
 				tw.start()
 				indigo.server.log("Thread started for " + CameraName + " camera. id: " + str(tw.ident))
