@@ -823,7 +823,7 @@ class Plugin(indigo.PluginBase):
 			indigo.server.log("Running the current version of Security Camera")
 		else:
 			indigo.server.log("The current version of Security Camera is " + str(CurrentVersion) + " and the running version " + str(ActiveVersion) + ".")
-			indigo.server.log("WARNING:  Upgrading to this version will require recreating all existing cameras.")
+			indigo.server.log("WARNING !:  Upgrading to this version will require recreating all existing cameras.")
 		
 		SnapshotDir = indigo.activePlugin.pluginPrefs["SnapshotDirectory"]
 		MainDir = indigo.activePlugin.pluginPrefs["MainDirectory"]
